@@ -5,6 +5,11 @@ on:
     branches: 
       - main
 
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04-arm
