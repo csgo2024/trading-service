@@ -75,6 +75,7 @@ stages:
     parameters:
       major: 0
       minor: 1
+      patch: 0
       environment: 'production'
 
   - deployment: build_image
@@ -110,7 +111,7 @@ stages:
                 --push \
                 .
             displayName: 'Build Docker image'
-            timeoutInMinutes: 30
+            timeoutInMinutes: 60
 
 # https://stackoverflow.com/questions/59226055/setting-git-tag-from-azure-devops-build-pipeline-on-complete
 - stage: Release
