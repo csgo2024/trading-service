@@ -1,8 +1,8 @@
-name: Publish Docker Image
+name: Sync And Publish
 
 on:
   push:
-    branches: 
+    branches:
       - main
 
 permissions:
@@ -11,11 +11,11 @@ permissions:
   checks: write
 
 jobs:
-  docker-publish:
-    runs-on: ubuntu-24.04-arm
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-24.04
     env:
       BUILD_CONFIGURATION: Release
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -28,12 +28,39 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore Trading.sln
 
-      - name: Build
+      - name: Build solution
         run: dotnet build Trading.sln --configuration ${{ env.BUILD_CONFIGURATION }}
 
       - name: Run tests
         timeout-minutes: 15
         run: dotnet test Trading.sln --configuration ${{ env.BUILD_CONFIGURATION }}
+
+  sync-to-azure:
+    name: 🔄 Sync to Azure DevOps
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: success()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Push to Azure DevOps
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git remote add azure "https://${{ secrets.AZURE_DEVOPS_PAT }}@dev.azure.com/${{ secrets.AZURE_DEVOPS_ORG }}/${{ secrets.AZURE_DEVOPS_PROJECT }}/_git/${{ secrets.AZURE_DEVOPS_REPO }}"
+          git push azure main --force
+
+  docker-publish:
+    name: 🐳 Build and Push Docker Image
+    runs-on: ubuntu-24.04-arm
+    needs: sync-to-azure
+    if: success()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Build and Push Docker Image
         run: |
