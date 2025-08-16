@@ -1,4 +1,4 @@
-name: Publish Docker Image
+name: Sync And Publish
 
 on:
   push:
@@ -35,6 +35,14 @@ jobs:
         timeout-minutes: 15
         run: dotnet test Trading.sln --configuration ${{ env.BUILD_CONFIGURATION }}
 
+      - name: Push to Azure DevOps
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git remote add azure "https://${{ secrets.AZURE_DEVOPS_PAT }}@dev.azure.com/${{ secrets.AZURE_DEVOPS_ORG }}/${{ secrets.AZURE_DEVOPS_PROJECT }}/_git/${{ secrets.AZURE_DEVOPS_REPO }}"
+          git pull azure main
+          git push azure main
+          
       - name: Build and Push Docker Image
         run: |
           echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
