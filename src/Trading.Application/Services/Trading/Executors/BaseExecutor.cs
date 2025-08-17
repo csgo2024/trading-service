@@ -116,7 +116,12 @@ public abstract class BaseExecutor :
         {
             try
             {
-                await ExecuteAsync(accountProcessor, strategy, cancellationToken);
+                // get strategy from state manager to ensure we have the latest state
+                var s = _stateManager.GetStrategy(strategy.StrategyType, strategy.Id);
+                if (s != null)
+                {
+                    await ExecuteAsync(accountProcessor, s, cancellationToken);
+                }
                 await Task.Delay(TimeSpan.FromMinutes(2), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

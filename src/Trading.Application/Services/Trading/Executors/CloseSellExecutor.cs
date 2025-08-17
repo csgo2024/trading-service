@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Trading.Application.Services.Alerts;
 using Trading.Application.Services.Trading.Account;
@@ -41,12 +42,15 @@ public class CloseSellExecutor : BaseExecutor
 
     public override async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
+        _logger.LogDebug("Executing CloseSellExecutor for strategy {Strategy}", JsonSerializer.Serialize(strategy));
         if (strategy.AccountType == AccountType.Spot)
         {
             return;
         }
         if (strategy.OpenPrice is null || strategy.TargetPrice <= 0 || strategy.Quantity <= 0)
         {
+            _logger.LogDebug("Strategy is not ready for place order. OpenPrice: {OpenPrice}, TargetPrice: {TargetPrice}, Quantity: {Quantity}",
+                strategy.OpenPrice, strategy.TargetPrice, strategy.Quantity);
             return;
         }
         if (strategy.OrderId is null)

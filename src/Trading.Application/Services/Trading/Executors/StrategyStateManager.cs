@@ -11,6 +11,7 @@ public interface IStrategyStateManager
     Dictionary<string, Strategy> GetState(StrategyType strategyType);
     void RemoveStrategy(Strategy strategy);
     void AddStrategy(Strategy strategy);
+    Strategy? GetStrategy(StrategyType strategyType, string strategyId);
 }
 
 public class StrategyStateManager : IStrategyStateManager
@@ -66,5 +67,15 @@ public class StrategyStateManager : IStrategyStateManager
                                strategy.AccountType,
                                strategy.Symbol,
                                strategy.StrategyType);
+    }
+
+    public Strategy? GetStrategy(StrategyType strategyType, string strategyId)
+    {
+        if (_states.TryGetValue(strategyType, out var state) && state.TryGetValue(strategyId, out var strategy))
+        {
+            return strategy;
+        }
+        _logger.LogWarning("[{StrategyType}] Strategy with ID {StrategyId} not found in state.", strategyType, strategyId);
+        return null;
     }
 }

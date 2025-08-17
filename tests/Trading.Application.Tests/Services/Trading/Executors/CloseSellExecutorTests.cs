@@ -193,6 +193,51 @@ public class CloseSellExecutorTests
     }
 
     [Fact]
+    public async Task ExecuteAsync_ShouldLogDebugInformation()
+    {
+        // Arrange
+        var strategy = new Strategy
+        {
+            Id = "test-id",
+            AccountType = AccountType.Future,
+            StrategyType = StrategyType.CloseSell,
+            OpenPrice = 40000m,
+            TargetPrice = 41000m,
+            Quantity = 1m
+        };
+
+        _mockAccountProcessor.SetupSuccessfulPlaceShortOrderAsync(12345L);
+        _mockAccountProcessor.SetupSuccessfulGetOrder(OrderStatus.New);
+
+        // Act
+        await _executor.ExecuteAsync(_mockAccountProcessor.Object, strategy, _ct);
+
+        // Assert
+        _mockLogger.VerifyLoggingOnce(LogLevel.Debug, "Executing CloseSellExecutor for strategy");
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenStrategyNotReadyForPlaceOrder_ShouldLogDebugInformation()
+    {
+        // Arrange
+        var strategy = new Strategy
+        {
+            Id = "test-id",
+            AccountType = AccountType.Future,
+            StrategyType = StrategyType.CloseSell,
+            OpenPrice = null,
+            TargetPrice = 0m,
+            Quantity = 0m
+        };
+
+        // Act
+        await _executor.ExecuteAsync(_mockAccountProcessor.Object, strategy, _ct);
+
+        // Assert
+        _mockLogger.VerifyLoggingOnce(LogLevel.Debug, "Strategy is not ready for place order");
+    }
+
+    [Fact]
     public async Task Handle_WithExistingOrder_ShouldNotPlaceNewOrder()
     {
         // Arrange

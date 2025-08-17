@@ -82,6 +82,66 @@ public class BaseExecutorTests
     }
 
     [Fact]
+    public async Task ExecuteLoop_ShouldGetStrategyFromStateManagerAndExecute()
+    {
+        // Arrange
+        var strategy = new Strategy
+        {
+            Id = "test-id",
+            StrategyType = StrategyType.CloseSell,
+            OrderId = 12345,
+            HasOpenOrder = true,
+            OrderPlacedTime = DateTime.UtcNow
+        };
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromSeconds(1)); // Cancel after 1 second to end the loop
+
+        _mockStrategyStateManager
+            .Setup(x => x.GetStrategy(strategy.StrategyType, strategy.Id))
+            .Returns(strategy);
+
+        _mockAccountProcessor.SetupSuccessfulGetOrder(OrderStatus.New);
+        _mockStrategyRepository.Setup(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+
+        // Act
+        await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy, cts.Token);
+
+        // Assert
+        _mockStrategyStateManager.Verify(x => x.GetStrategy(strategy.StrategyType, strategy.Id), Times.AtLeastOnce);
+        _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task ExecuteLoop_WhenStrategyNotFoundInStateManager_ShouldSkipExecution()
+    {
+        // Arrange
+        var strategy = new Strategy
+        {
+            Id = "test-id",
+            StrategyType = StrategyType.CloseSell,
+            OrderId = 12345,
+            HasOpenOrder = true,
+            OrderPlacedTime = DateTime.UtcNow
+        };
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromSeconds(1)); // Cancel after 1 second to end the loop
+
+        _mockStrategyStateManager
+            .Setup(x => x.GetStrategy(strategy.StrategyType, strategy.Id))
+            .Returns(() => null);
+
+        // Act
+        await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy, cts.Token);
+
+        // Assert
+        _mockStrategyStateManager.Verify(x => x.GetStrategy(strategy.StrategyType, strategy.Id), Times.AtLeastOnce);
+        _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task CancelExistingOrder_WithNoOrderId_ShouldReturnImmediately()
     {
         // Arrange
