@@ -35,7 +35,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
             }
 
             var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var task = Task.Run(() => executionFunc(cts.Token), cts.Token);
+            var task = executionFunc(cts.Token);
 
             var taskInfo = new TaskInfo
             {
@@ -48,7 +48,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
             if (!_state.TryAdd(taskInfo))
             {
                 _logger.LogWarning("Failed to add task info: Category={Category}, TaskId={TaskId}", category, taskId);
-                cts.Cancel();
+                await cts.CancelAsync();
                 cts.Dispose();
                 return;
             }
@@ -67,7 +67,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
 
     public async Task StopAsync(TaskCategory category, string taskId)
     {
-        TaskInfo? taskInfo = null;
+        TaskInfo? taskInfo;
 
         await _taskLock.WaitAsync();
         try
@@ -85,9 +85,16 @@ public class BackgroundTaskManager : IBackgroundTaskManager
 
         try
         {
-            taskInfo!.Cts.Cancel();
-            await taskInfo.Task;
-            taskInfo.Cts.Dispose();
+            await taskInfo!.Cts.CancelAsync();
+            try
+            {
+                await taskInfo.Task; // Ensure task completes
+            }
+            catch (OperationCanceledException)
+            {
+                // ignore TaskCanceledException
+            }
+            _logger.LogInformation("Task stopped: Category={Category}, TaskId={TaskId}", category, taskId);
         }
         catch (Exception ex)
         {
@@ -96,7 +103,6 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         finally
         {
             taskInfo!.Cts.Dispose();
-            _logger.LogInformation("Task stopped: Category={Category}, TaskId={TaskId}", category, taskId);
         }
     }
 
