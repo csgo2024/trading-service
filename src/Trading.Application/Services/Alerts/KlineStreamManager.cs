@@ -3,7 +3,6 @@ using Binance.Net.Interfaces;
 using CryptoExchange.Net.Objects.Sockets;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Trading.Domain.Events;
 using Trading.Exchange.Binance.Helpers;
 using Trading.Exchange.Binance.Wrappers.Clients;
 
@@ -23,10 +22,7 @@ public class KlineClosedEvent : INotification
     }
 }
 
-public interface IKlineStreamManager : IDisposable,
-    INotificationHandler<AlertResumedEvent>,
-    INotificationHandler<AlertCreatedEvent>,
-    INotificationHandler<StrategyCreatedEvent>
+public interface IKlineStreamManager : IDisposable
 {
     Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct);
     bool NeedsReconnection();
@@ -50,6 +46,7 @@ public class KlineStreamManager : IKlineStreamManager
         _logger = logger;
         _mediator = mediator;
         _usdFutureSocketClient = usdFutureSocketClient;
+        _logger.LogInformation("KlineStreamManager created : {HashCode}", GetHashCode());
     }
 
     public async Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct)
@@ -133,21 +130,4 @@ public class KlineStreamManager : IKlineStreamManager
         _subscription?.CloseAsync().Wait();
     }
 
-    public async Task Handle(AlertResumedEvent notification, CancellationToken cancellationToken)
-    {
-        await SubscribeSymbols([notification.Alert.Symbol], [notification.Alert.Interval], cancellationToken);
-    }
-
-    public async Task Handle(AlertCreatedEvent notification, CancellationToken cancellationToken)
-    {
-        await SubscribeSymbols([notification.Alert.Symbol], [notification.Alert.Interval], cancellationToken);
-    }
-
-    public async Task Handle(StrategyCreatedEvent notification, CancellationToken cancellationToken)
-    {
-        if (notification.Strategy.Symbol != null && notification.Strategy.Interval != null)
-        {
-            await SubscribeSymbols([notification.Strategy.Symbol], [notification.Strategy.Interval], cancellationToken);
-        }
-    }
 }

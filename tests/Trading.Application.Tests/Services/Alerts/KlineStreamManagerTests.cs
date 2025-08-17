@@ -7,8 +7,6 @@ using MediatR;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.Application.Services.Alerts;
-using Trading.Domain.Entities;
-using Trading.Domain.Events;
 using Trading.Exchange.Binance.Wrappers.Clients;
 
 namespace Trading.Application.Tests.Services.Alerts;
@@ -121,66 +119,6 @@ public class KlineStreamManagerTests
         // Assert
         Assert.False(result);
         _mockLogger.VerifyLoggingOnce(LogLevel.Error, "");
-    }
-
-    [Fact]
-    public async Task Handle_AlertCreatedEvent_ShouldUpdateSubscriptions()
-    {
-        // Arrange
-        var alert = new Alert { Symbol = "ETHUSDT", Interval = "1h" };
-        var notification = new AlertCreatedEvent(alert);
-
-        _mockExchangeData
-            .Setup(x => x.SubscribeToKlineUpdatesAsync(
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<IEnumerable<KlineInterval>>(),
-                It.IsAny<Action<DataEvent<IBinanceStreamKlineData>>>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CallResult<UpdateSubscription>(null, null, null));
-
-        // Act
-        await _manager.Handle(notification, _cts.Token);
-
-        // Assert
-        _mockExchangeData.Verify(
-            x => x.SubscribeToKlineUpdatesAsync(
-                It.Is<IEnumerable<string>>(s => s.Contains("ETHUSDT")),
-                It.Is<IEnumerable<KlineInterval>>(i => i.Contains(KlineInterval.OneHour)),
-                It.IsAny<Action<DataEvent<IBinanceStreamKlineData>>>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task Handle_AlertResumedEvent_ShouldUpdateSubscriptions()
-    {
-        // Arrange
-        var alert = new Alert { Symbol = "ETHUSDT", Interval = "1h" };
-        var notification = new AlertResumedEvent(alert);
-
-        _mockExchangeData
-            .Setup(x => x.SubscribeToKlineUpdatesAsync(
-                It.IsAny<IEnumerable<string>>(),
-                It.IsAny<IEnumerable<KlineInterval>>(),
-                It.IsAny<Action<DataEvent<IBinanceStreamKlineData>>>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new CallResult<UpdateSubscription>(null, null, null));
-
-        // Act
-        await _manager.Handle(notification, _cts.Token);
-
-        // Assert
-        _mockExchangeData.Verify(
-            x => x.SubscribeToKlineUpdatesAsync(
-                It.Is<IEnumerable<string>>(s => s.Contains("ETHUSDT")),
-                It.Is<IEnumerable<KlineInterval>>(i => i.Contains(KlineInterval.OneHour)),
-                It.IsAny<Action<DataEvent<IBinanceStreamKlineData>>>(),
-                It.IsAny<bool>(),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
     }
 
     [Fact]
