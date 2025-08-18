@@ -1,6 +1,5 @@
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
-using Trading.Application.Services.Alerts;
+using Trading.Application.Services.Common;
 using Trading.Application.Services.Trading.Account;
 using Trading.Common.Enums;
 using Trading.Common.JavaScript;
@@ -23,7 +22,7 @@ public class CloseSellExecutor : BaseExecutor
 
     public override StrategyType StrategyType => StrategyType.CloseSell;
 
-    public override async Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent notification, CancellationToken cancellationToken)
+    public override async Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event, CancellationToken cancellationToken)
     {
         if (strategy.AccountType == AccountType.Spot)
         {
@@ -32,7 +31,7 @@ public class CloseSellExecutor : BaseExecutor
         if (strategy.OrderId is null)
         {
             var filterData = await accountProcessor.GetSymbolFilterData(strategy, cancellationToken);
-            var closePrice = notification.Kline.ClosePrice;
+            var closePrice = @event.Kline.ClosePrice;
             strategy.OpenPrice = closePrice; // Update open price to the current close price
             strategy.TargetPrice = BinanceHelper.AdjustPriceByStepSize(closePrice * (1 + strategy.Volatility), filterData.Item1);
             strategy.Quantity = BinanceHelper.AdjustQuantityBystepSize(strategy.Amount / strategy.TargetPrice, filterData.Item2);
@@ -42,15 +41,12 @@ public class CloseSellExecutor : BaseExecutor
 
     public override async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
-        _logger.LogDebug("Executing CloseSellExecutor for strategy {Strategy}", JsonSerializer.Serialize(strategy));
         if (strategy.AccountType == AccountType.Spot)
         {
             return;
         }
         if (strategy.OpenPrice is null || strategy.TargetPrice <= 0 || strategy.Quantity <= 0)
         {
-            _logger.LogDebug("Strategy is not ready for place order. OpenPrice: {OpenPrice}, TargetPrice: {TargetPrice}, Quantity: {Quantity}",
-                strategy.OpenPrice, strategy.TargetPrice, strategy.Quantity);
             return;
         }
         if (strategy.OrderId is null)

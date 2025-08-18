@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Trading.Application.Services.Alerts;
+using Trading.Application.Services.Common;
 using Trading.Application.Services.Trading.Account;
 using Trading.Common.Enums;
 using Trading.Common.JavaScript;
@@ -22,12 +22,12 @@ public class CloseBuyExecutor : BaseExecutor
 
     public override StrategyType StrategyType => StrategyType.CloseBuy;
 
-    public override async Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent notification, CancellationToken cancellationToken)
+    public override async Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event, CancellationToken cancellationToken)
     {
         if (strategy.OrderId is null)
         {
             var filterData = await accountProcessor.GetSymbolFilterData(strategy, cancellationToken);
-            var closePrice = notification.Kline.ClosePrice;
+            var closePrice = @event.Kline.ClosePrice;
             strategy.OpenPrice = closePrice; // Update open price to the current close price
             strategy.TargetPrice = BinanceHelper.AdjustPriceByStepSize(closePrice * (1 - strategy.Volatility), filterData.Item1);
             strategy.Quantity = BinanceHelper.AdjustQuantityBystepSize(strategy.Amount / strategy.TargetPrice, filterData.Item2);

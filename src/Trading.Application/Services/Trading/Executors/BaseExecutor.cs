@@ -1,9 +1,8 @@
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models;
 using CryptoExchange.Net.Objects;
-using MediatR;
 using Microsoft.Extensions.Logging;
-using Trading.Application.Services.Alerts;
+using Trading.Application.Services.Common;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Enums;
@@ -11,12 +10,10 @@ using Trading.Common.Helpers;
 using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
-using Trading.Exchange.Binance.Helpers;
 
 namespace Trading.Application.Services.Trading.Executors;
 
-public abstract class BaseExecutor :
-    INotificationHandler<KlineClosedEvent>
+public abstract class BaseExecutor
 {
     protected readonly ILogger _logger;
     protected readonly IStrategyRepository _strategyRepository;
@@ -144,7 +141,7 @@ public abstract class BaseExecutor :
                          strategy.Symbol,
                          cancelResult.Error?.Message);
     }
-    public async Task TryStopOrderAsync(IAccountProcessor accountProcessor, Strategy strategy, decimal stopPrice, CancellationToken ct)
+    public virtual async Task TryStopOrderAsync(IAccountProcessor accountProcessor, Strategy strategy, decimal stopPrice, CancellationToken ct)
     {
         if (strategy.OrderId is null)
         {
@@ -255,31 +252,11 @@ public abstract class BaseExecutor :
             result?.Error?.Message, price, quantity);
     }
 
-    public virtual async Task Handle(KlineClosedEvent notification, CancellationToken cancellationToken)
-    {
-        var strategies = _strategyState.All().Where(x => x.Symbol == notification.Symbol
-            && x.Interval == BinanceHelper.ConvertToIntervalString(notification.Interval));
-        var tasks = strategies.Select(async strategy =>
-        {
-            var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType);
-            if (accountProcessor != null)
-            {
-                await HandleKlineClosedEvent(accountProcessor, strategy, notification, cancellationToken);
-                if (ShouldStopLoss(accountProcessor, strategy, notification))
-                {
-                    await TryStopOrderAsync(accountProcessor, strategy, notification.Kline.ClosePrice, cancellationToken);
-                    strategy.Pause();
-                }
-                await _strategyRepository.UpdateAsync(strategy.Id, strategy, cancellationToken);
-            }
-        });
-        await Task.WhenAll(tasks);
-    }
-    public virtual Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent notification, CancellationToken cancellationToken)
+    public virtual Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event, CancellationToken cancellationToken)
     {
         return Task.CompletedTask;
     }
-    protected bool ShouldStopLoss(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event)
+    public virtual bool ShouldStopLoss(Strategy strategy, KlineClosedEvent @event)
     {
         if (string.IsNullOrEmpty(strategy.StopLossExpression))
         {

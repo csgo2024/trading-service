@@ -30,6 +30,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<JavaScriptEvaluator>();
         services.AddSingleton<SpotProcessor>();
         services.AddSingleton<StrategyEventHandler>();
+        services.AddSingleton<KlineClosedEventHandler>();
         return services;
     }
 

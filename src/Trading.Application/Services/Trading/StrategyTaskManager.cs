@@ -49,9 +49,6 @@ public class StrategyTaskManager : IStrategyTaskManager
                                           strategy.Id,
                                           async (ct) => await executor!.ExecuteLoopAsync(accountProcessor, strategy.Id, ct),
                                           cancellationToken);
-            _logger.LogInformation("[{AccountType}-{Symbol}-{StrategyType}] Added strategy to monitoring list.",
-                                   strategy.AccountType, strategy.Symbol, strategy.StrategyType);
-
         }
     }
 
@@ -66,8 +63,6 @@ public class StrategyTaskManager : IStrategyTaskManager
                 await executor!.CancelExistingOrder(accountProcessor!, strategy, cancellationToken);
             }
             await _backgroundTaskManager.StopAsync(TaskCategory.Strategy, strategy.Id);
-            _logger.LogInformation("[{AccountType}-{Symbol}-{StrategyType}] Removed strategy from monitoring list.",
-                                   strategy.AccountType, strategy.Symbol, strategy.StrategyType);
         }
     }
 
@@ -76,8 +71,6 @@ public class StrategyTaskManager : IStrategyTaskManager
         if (_strategyState.TryRemove(strategy.Id, out var _))
         {
             await _backgroundTaskManager.StopAsync(TaskCategory.Strategy, strategy.Id);
-            _logger.LogInformation("[{AccountType}-{Symbol}-{StrategyType}] Removed strategy from monitoring list.",
-                                   strategy.AccountType, strategy.Symbol, strategy.StrategyType);
         }
     }
 
@@ -92,9 +85,6 @@ public class StrategyTaskManager : IStrategyTaskManager
                                           strategy.Id,
                                           async (ct) => await executor!.ExecuteLoopAsync(accountProcessor, strategy.Id, ct),
                                           cancellationToken);
-            _logger.LogInformation("[{AccountType}-{Symbol}-{StrategyType}] Added strategy to monitoring list.",
-                                   strategy.AccountType, strategy.Symbol, strategy.StrategyType);
-
         }
     }
 }

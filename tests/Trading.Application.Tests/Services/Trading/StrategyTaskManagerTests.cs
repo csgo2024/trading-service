@@ -4,7 +4,6 @@ using Trading.Application.Services.Common;
 using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
-using Trading.Application.Tests;
 using Trading.Common.Enums;
 using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
@@ -86,8 +85,6 @@ public class StrategyTaskManagerTests
             _strategy.Id,
             It.IsAny<Func<CancellationToken, Task>>(),
             It.IsAny<CancellationToken>()), Times.Once);
-
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Added strategy to monitoring list.");
     }
 
     [Fact]
@@ -122,8 +119,6 @@ public class StrategyTaskManagerTests
             _strategy.Id,
             It.IsAny<Func<CancellationToken, Task>>(),
             It.IsAny<CancellationToken>()), Times.Once);
-
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Added strategy to monitoring list.");
     }
 
     [Fact]
@@ -155,7 +150,6 @@ public class StrategyTaskManagerTests
         // Assert
         _backgroundTaskManagerMock.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Once);
         _executorMock.Verify(m => m.CancelExistingOrder(It.IsAny<IAccountProcessor>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Removed strategy from monitoring list.");
     }
 
     [Fact]
@@ -185,7 +179,6 @@ public class StrategyTaskManagerTests
         // Assert
         _backgroundTaskManagerMock.Verify(m => m.StopAsync(TaskCategory.Strategy, strategyWithOrder.Id), Times.Once);
         _executorMock.Verify(m => m.CancelExistingOrder(_accountProcessorMock.Object, strategyWithOrder, It.IsAny<CancellationToken>()), Times.Once);
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Removed strategy from monitoring list.");
     }
 
     [Fact]
@@ -213,7 +206,6 @@ public class StrategyTaskManagerTests
 
         // Assert
         _backgroundTaskManagerMock.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Once);
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Removed strategy from monitoring list.");
     }
 
     [Fact]

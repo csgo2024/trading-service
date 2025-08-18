@@ -1,19 +1,15 @@
 using Binance.Net.Enums;
-using Binance.Net.Interfaces;
 using Binance.Net.Objects.Models;
 using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Objects;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Alerts;
 using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
-using Trading.Common.Enums;
 using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
-using AccountType = Trading.Common.Enums.AccountType;
 using StrategyType = Trading.Common.Enums.StrategyType;
 
 namespace Trading.Application.Tests.Services.Trading.Executors;
@@ -326,7 +322,6 @@ public class BaseExecutorTests
         await _executor.TryPlaceOrder(_mockAccountProcessor.Object, strategy, _ct);
 
         // Assert
-        // Assert
         _mockAccountProcessor.Verify(x => x.PlaceLongOrderAsync(
                 It.IsAny<string>(),
                 It.IsAny<decimal>(),
@@ -380,117 +375,6 @@ public class BaseExecutorTests
         // Assert
         _mockLogger.VerifyLoggingTimes(LogLevel.Warning, "Retrying", Times.Exactly(MAX_RETRIES - 1));
         _mockLogger.VerifyLoggingOnce(LogLevel.Error, "Insufficient balance");
-    }
-
-    [Fact]
-    public async Task Handle_WithNoMatchingStrategies_ShouldNotProcessAnyStrategy()
-    {
-        // Arrange
-        var symbol = "ETHUSDT";
-        var interval = KlineInterval.FiveMinutes;
-        var kline = Mock.Of<IBinanceKline>(k =>
-            k.OpenPrice == 40000m &&
-            k.ClosePrice == 41000m &&
-            k.HighPrice == 42000m &&
-            k.LowPrice == 39000m);
-        var notification = new KlineClosedEvent(symbol, interval, kline);
-
-        _mockStrategyState
-            .Setup(x => x.All())
-            .Returns([new Strategy { Symbol = "BTCUSDT", Interval = "5m" }]);
-
-        // Act
-        await _executor.Handle(notification, CancellationToken.None);
-
-        // Assert
-        _mockStrategyRepository.Verify(
-            x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-    }
-
-    [Fact]
-    public async Task Handle_WithMatchingStrategies_ShouldProcessAllMatchingStrategies()
-    {
-        // Arrange
-        var symbol = "BTCUSDT";
-        var interval = KlineInterval.FiveMinutes;
-        var kline = Mock.Of<IBinanceKline>(k =>
-            k.OpenPrice == 40000m &&
-            k.ClosePrice == 41000m &&
-            k.HighPrice == 42000m &&
-            k.LowPrice == 39000m);
-        var notification = new KlineClosedEvent(symbol, interval, kline);
-
-        var strategies = new Strategy[] {
-            new() { Id = "1", Symbol = "BTCUSDT", Interval = "5m" },
-            new() { Id = "2", Symbol = "BTCUSDT", Interval = "5m" }
-        };
-
-        _mockStrategyState.Setup(x => x.All())
-            .Returns(strategies);
-
-        _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
-            .Returns(_mockAccountProcessor.Object);
-
-        // Act
-        await _executor.Handle(notification, CancellationToken.None);
-
-        // Assert
-        _mockStrategyRepository.Verify(
-            x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
-            Times.Exactly(2));
-    }
-
-    [Fact]
-    public async Task Handle_WhenStopLossTriggered_ShouldExecuteStopLossAndPauseStrategy()
-    {
-        // Arrange
-        var strategy = new Strategy
-        {
-            Id = "1",
-            Symbol = "BTCUSDT",
-            Interval = "5m",
-            OrderId = 12345,
-            StopLossExpression = "close < 45000"
-        };
-
-        var symbol = "BTCUSDT";
-        var interval = KlineInterval.FiveMinutes;
-        var kline = Mock.Of<IBinanceKline>(k =>
-            k.OpenPrice == 40000m &&
-            k.ClosePrice == 41000m &&
-            k.HighPrice == 42000m &&
-            k.LowPrice == 39000m);
-        var notification = new KlineClosedEvent(symbol, interval, kline);
-
-        _mockStrategyState.Setup(x => x.All())
-            .Returns([strategy]);
-
-        _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
-            .Returns(_mockAccountProcessor.Object);
-
-        _mockJavaScriptEvaluator.Setup(x => x.EvaluateExpression(
-            It.IsAny<string>(),
-            It.IsAny<decimal>(),
-            It.IsAny<decimal>(),
-            It.IsAny<decimal>(),
-            It.IsAny<decimal>()))
-            .Returns(true);
-
-        _mockAccountProcessor.SetupSuccessfulStopLongOrderAsync();
-
-        // Act
-        await _executor.Handle(notification, CancellationToken.None);
-
-        // Assert
-        Assert.Equal(Status.Paused, strategy.Status);
-        _mockAccountProcessor.Verify(
-            x => x.StopLongOrderAsync(
-                It.IsAny<string>(),
-                It.IsAny<decimal>(),
-                It.IsAny<decimal>(),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
     }
 
     [Fact]

@@ -33,7 +33,9 @@ public class StrategyState : IStrategyState
 
     public bool TryAdd(string key, Strategy value)
     {
-        return _states.TryAdd(key, value);
+        var isNewKey = !_states.TryGetValue(key, out _);
+        _states.AddOrUpdate(key, value, (key, old) => value);
+        return isNewKey;
     }
 
     public bool TryGetValue(string key, out Strategy? value)

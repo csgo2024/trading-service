@@ -1,26 +1,12 @@
-using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 using CryptoExchange.Net.Objects.Sockets;
 using MediatR;
 using Microsoft.Extensions.Logging;
+using Trading.Application.Services.Common;
 using Trading.Exchange.Binance.Helpers;
 using Trading.Exchange.Binance.Wrappers.Clients;
 
 namespace Trading.Application.Services.Alerts;
-
-public class KlineClosedEvent : INotification
-{
-    public string Symbol { get; }
-    public KlineInterval Interval { get; }
-    public IBinanceKline Kline { get; }
-
-    public KlineClosedEvent(string symbol, KlineInterval interval, IBinanceKline kline)
-    {
-        Symbol = symbol;
-        Interval = interval;
-        Kline = kline;
-    }
-}
 
 public interface IKlineStreamManager : IDisposable
 {
@@ -88,19 +74,10 @@ public class KlineStreamManager : IKlineStreamManager
 
     private void HandlePriceUpdate(DataEvent<IBinanceStreamKlineData> data)
     {
-        _logger.LogDebug("HandlePriceUpdate received full data: {@Data}", data);
-
         if (!data.Data.Data.Final)
         {
-            _logger.LogDebug("Kline update is not final. Symbol={Symbol}, Interval={Interval}",
-                data.Data.Symbol,
-                data.Data.Data.Interval);
             return;
         }
-
-        _logger.LogDebug("Kline closed. Publishing event. Symbol={Symbol}, Interval={Interval}",
-            data.Data.Symbol,
-            data.Data.Data.Interval);
 
         Task.Run(() => _mediator.Publish(
             new KlineClosedEvent(data.Data.Symbol, data.Data.Data.Interval, data.Data.Data)
