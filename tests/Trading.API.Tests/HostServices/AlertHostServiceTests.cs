@@ -131,8 +131,8 @@ public class AlertHostServiceTests : IDisposable
         var strategy = new Strategy { Id = "123", Symbol = "DOGEUSDT", Interval = "4h", StrategyType = StrategyType.CloseBuy };
 
         _strategyRepositoryMock
-            .Setup(x => x.FindActiveStrategies())
-            .ReturnsAsync(new Dictionary<string, Strategy> { { "123", strategy } });
+            .Setup(x => x.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([strategy]);
 
         _alertRepositoryMock
             .Setup(x => x.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
@@ -170,9 +170,10 @@ public class AlertHostServiceTests : IDisposable
         _alertRepositoryMock
             .Setup(x => x.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(alerts);
+
         _strategyRepositoryMock
-            .Setup(x => x.FindActiveStrategies())
-            .ReturnsAsync(new Dictionary<string, Strategy> { { "123", strategy } });
+            .Setup(x => x.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync([strategy]);
 
         _klineStreamManagerMock
             .Setup(x => x.NeedsReconnection())

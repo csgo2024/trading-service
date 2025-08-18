@@ -19,10 +19,10 @@ public class StrategyRepository : BaseRepository<Strategy>, IStrategyRepository
         return await AddAsync(entity, cancellationToken);
     }
 
-    public async Task<Dictionary<string, Strategy>> FindActiveStrategies()
+    public async Task<List<Strategy>> GetActiveStrategyAsync(CancellationToken cancellationToken = default)
     {
-        var data = await _collection.Find(x => x.Status == Status.Running).ToListAsync();
-        return data.ToDictionary(config => $"{config.Symbol}{config.Id}{config.AccountType}", config => config);
+        var result = await _collection.Find(x => x.Status == Status.Running).ToListAsync(cancellationToken);
+        return result;
     }
 
     public async Task<List<Strategy>> GetAllStrategies()
@@ -36,7 +36,7 @@ public class StrategyRepository : BaseRepository<Strategy>, IStrategyRepository
         return await UpdateAsync(entity.Id, entity, cancellationToken);
     }
 
-    public async Task<List<Strategy>> FindActiveStrategyByType(StrategyType strategyType, CancellationToken cancellationToken = default)
+    public async Task<List<Strategy>> GetActiveStrategyByTypeAsync(StrategyType strategyType, CancellationToken cancellationToken = default)
     {
         var result = await _collection.Find(x => x.StrategyType == strategyType && x.Status == Status.Running).ToListAsync(cancellationToken);
         return result;

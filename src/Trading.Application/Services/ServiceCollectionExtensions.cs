@@ -25,10 +25,11 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IExecutorFactory, ExecutorFactory>();
         services.AddTransient<IKlineStreamEventHandler, KlineStreamEventHandler>();
         services.AddSingleton<IKlineStreamManager, KlineStreamManager>();
-        services.AddSingleton<IStrategyStateManager, StrategyStateManager>();
+        services.AddSingleton<IStrategyState, StrategyState>();
+        services.AddSingleton<IStrategyTaskManager, StrategyTaskManager>();
         services.AddSingleton<JavaScriptEvaluator>();
         services.AddSingleton<SpotProcessor>();
-        services.AddSingleton<StrategyDispatchService>();
+        services.AddSingleton<StrategyEventHandler>();
         return services;
     }
 

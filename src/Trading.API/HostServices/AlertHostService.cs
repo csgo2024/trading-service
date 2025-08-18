@@ -34,14 +34,14 @@ public class AlertHostService : BackgroundService
             try
             {
                 var alerts = await _alertRepository.GetActiveAlertsAsync(stoppingToken);
-                var strategyDict = await _strategyRepository.FindActiveStrategies();
+                var strategies = await _strategyRepository.GetActiveStrategyAsync(stoppingToken);
 
                 var symbols = alerts.Select(x => x.Symbol)
-                    .Concat(strategyDict.Values.Select(x => x.Symbol))
+                    .Concat(strategies.Select(x => x.Symbol))
                     .ToHashSet();
 
                 var intervals = alerts.Select(x => x.Interval)
-                    .Concat(strategyDict.Values.Where(x => x.Interval != null)
+                    .Concat(strategies.Where(x => x.Interval != null)
                     .Select(x => x.Interval!))
                     .ToHashSet();
 

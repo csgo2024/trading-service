@@ -6,8 +6,8 @@ namespace Trading.Domain.IRepositories;
 public interface IStrategyRepository : IRepository<Strategy>
 {
     Task<Strategy?> Add(Strategy entity, CancellationToken cancellationToken = default);
-    Task<Dictionary<string, Strategy>> FindActiveStrategies();
+    Task<List<Strategy>> GetActiveStrategyAsync(CancellationToken cancellationToken = default);
     Task<List<Strategy>> GetAllStrategies();
-    Task<List<Strategy>> FindActiveStrategyByType(StrategyType strategyType,
-                                                  CancellationToken cancellationToken = default);
+    Task<List<Strategy>> GetActiveStrategyByTypeAsync(StrategyType strategyType,
+                                                      CancellationToken cancellationToken = default);
 }

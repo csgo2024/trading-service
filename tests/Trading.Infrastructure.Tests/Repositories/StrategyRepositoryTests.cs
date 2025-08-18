@@ -97,7 +97,7 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
     }
 
     [Fact]
-    public async Task FindActiveStrategies_ShouldReturnAllActivestrategies()
+    public async Task GetActiveStrategyAsync_ShouldReturnAllActivestrategies()
     {
         // Arrange
         await _repository.EmptyAsync();
@@ -114,13 +114,13 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
         }
 
         // Act
-        var result = await _repository.FindActiveStrategies();
+        var result = await _repository.GetActiveStrategyAsync();
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(2, result.Keys.Count);
-        Assert.Single(result.Keys, x => x.Contains("S1") && x.Contains(AccountType.Spot.ToString()));
-        Assert.Single(result.Keys, x => x.Contains("F1") && x.Contains(AccountType.Future.ToString()));
+        Assert.Equal(2, result.Count);
+        Assert.Single(result, x => x.Symbol.Contains("S1") && x.AccountType == AccountType.Spot);
+        Assert.Single(result, x => x.Symbol.Contains("F1") && x.AccountType == AccountType.Future);
     }
 
     [Fact]
@@ -150,7 +150,7 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
         Assert.Equal(Status.Paused, updatedStrategy.Status);
     }
     [Fact]
-    public async Task FindActiveStrategyByType_ShouldReturnRunningAndExactMatchedStrategies()
+    public async Task GetActiveStrategyByTypeAsync_ShouldReturnRunningAndExactMatchedStrategies()
     {
         // Arrange
         await _repository.EmptyAsync();
@@ -169,7 +169,7 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
         }
 
         // Act
-        var result = await _repository.FindActiveStrategyByType(StrategyType.TopSell, CancellationToken.None);
+        var result = await _repository.GetActiveStrategyByTypeAsync(StrategyType.TopSell, CancellationToken.None);
 
         // Assert
         Assert.NotNull(result);

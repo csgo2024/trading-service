@@ -16,7 +16,7 @@ public class CloseSellExecutor : BaseExecutor
         IAccountProcessorFactory accountProcessorFactory,
         IStrategyRepository strategyRepository,
         JavaScriptEvaluator javaScriptEvaluator,
-        IStrategyStateManager stateManager)
+        IStrategyState stateManager)
         : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, stateManager)
     {
     }

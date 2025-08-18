@@ -19,8 +19,8 @@ public class BottomBuyExecutor : BaseExecutor
                              IStrategyRepository strategyRepository,
                              JavaScriptEvaluator javaScriptEvaluator,
                              IAccountProcessorFactory accountProcessorFactory,
-                             IStrategyStateManager strategyStateManager)
-        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyStateManager)
+                             IStrategyState strategyState)
+        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyState)
     {
     }
     public override async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
@@ -53,7 +53,7 @@ public class BottomBuyExecutor : BaseExecutor
         var kLines = await accountProcessor.GetKlines(strategy.Symbol, KlineInterval.OneDay, startTime: currentDate, limit: 1, ct: ct);
         if (kLines.Success && kLines.Data.Any())
         {
-            var openPrice = CommonHelper.TrimEndZero(kLines.Data.First().OpenPrice);
+            var openPrice = CommonHelper.TrimEndZero(kLines.Data[0].OpenPrice);
             var filterData = await accountProcessor.GetSymbolFilterData(strategy, ct);
             strategy.TargetPrice = BinanceHelper.AdjustPriceByStepSize(openPrice * (1 - strategy.Volatility), filterData.Item1);
             strategy.Quantity = BinanceHelper.AdjustQuantityBystepSize(strategy.Amount / strategy.TargetPrice, filterData.Item2);

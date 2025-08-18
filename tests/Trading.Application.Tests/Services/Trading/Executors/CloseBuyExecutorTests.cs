@@ -3,6 +3,7 @@ using Binance.Net.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.Application.Services.Alerts;
+using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.JavaScript;
@@ -20,7 +21,7 @@ public class CloseBuyExecutorTests
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
     private readonly Mock<IAccountProcessor> _mockAccountProcessor;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
-    private readonly Mock<IStrategyStateManager> _mockStrategyStateManager;
+    private readonly Mock<IStrategyState> _mockStrategyState;
     private readonly CloseBuyExecutor _executor;
     private readonly CancellationToken _ct;
 
@@ -31,13 +32,13 @@ public class CloseBuyExecutorTests
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
         _mockAccountProcessor = new Mock<IAccountProcessor>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
-        _mockStrategyStateManager = new Mock<IStrategyStateManager>();
+        _mockStrategyState = new Mock<IStrategyState>();
         _executor = new CloseBuyExecutor(
             _mockLogger.Object,
             _mockAccountProcessorFactory.Object,
             _mockStrategyRepository.Object,
             _mockJavaScriptEvaluator.Object,
-            _mockStrategyStateManager.Object
+            _mockStrategyState.Object
         );
         _ct = CancellationToken.None;
     }
@@ -61,7 +62,7 @@ public class CloseBuyExecutorTests
         // Arrange
         var notification = SetupKlineCloseEvent();
 
-        _mockStrategyRepository.Setup(x => x.FindActiveStrategyByType(
+        _mockStrategyRepository.Setup(x => x.GetActiveStrategyByTypeAsync(
             It.IsAny<StrategyType>(),
             It.IsAny<CancellationToken>()
         )).ReturnsAsync([]);
@@ -91,12 +92,9 @@ public class CloseBuyExecutorTests
             Interval = "1d"
         };
 
-        _mockStrategyStateManager
-            .Setup(x => x.GetState(It.IsAny<StrategyType>()))
-            .Returns(new Dictionary<string, Strategy>
-            {
-                { strategy.Id, strategy }
-            });
+        _mockStrategyState
+            .Setup(x => x.All())
+            .Returns([strategy]);
 
         _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
             .Returns(_mockAccountProcessor.Object);
@@ -128,7 +126,7 @@ public class CloseBuyExecutorTests
             StrategyType = StrategyType.CloseBuy,
         };
 
-        _mockStrategyRepository.Setup(x => x.FindActiveStrategyByType(
+        _mockStrategyRepository.Setup(x => x.GetActiveStrategyByTypeAsync(
             It.IsAny<StrategyType>(),
             It.IsAny<CancellationToken>()
         )).ReturnsAsync([strategy]);
@@ -165,7 +163,7 @@ public class CloseBuyExecutorTests
             OrderId = 12345L
         };
 
-        _mockStrategyRepository.Setup(x => x.FindActiveStrategyByType(
+        _mockStrategyRepository.Setup(x => x.GetActiveStrategyByTypeAsync(
             It.IsAny<StrategyType>(),
             It.IsAny<CancellationToken>()
         )).ReturnsAsync([strategy]);

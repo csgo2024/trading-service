@@ -94,11 +94,11 @@ public class TradingApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
                 }
             }
 
-            // Remove StrategyDispatchService from MediatR notification handlers
+            // Remove StrategyEventHandler from MediatR notification handlers
             descriptor = services.FirstOrDefault(d =>
                 d.ServiceType.IsGenericType &&
                 d.ServiceType.GetGenericTypeDefinition() == typeof(INotificationHandler<>) &&
-                d.ImplementationType == typeof(StrategyDispatchService));
+                d.ImplementationType == typeof(StrategyEventHandler));
 
             if (descriptor != null)
             {

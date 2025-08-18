@@ -13,8 +13,8 @@ public class DCABuyExecutor : BaseExecutor
                           IStrategyRepository strategyRepository,
                           JavaScriptEvaluator javaScriptEvaluator,
                           IAccountProcessorFactory accountProcessorFactory,
-                          IStrategyStateManager strategyStateManager)
-        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyStateManager)
+                          IStrategyState strategyTaskManager)
+        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyTaskManager)
     {
     }
 

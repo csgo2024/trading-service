@@ -6,6 +6,7 @@ using CryptoExchange.Net.Objects;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.Application.Services.Alerts;
+using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.Enums;
@@ -23,8 +24,8 @@ public class TestExecutor : BaseExecutor
                         IStrategyRepository strategyRepository,
                         JavaScriptEvaluator javaScriptEvaluator,
                         IAccountProcessorFactory accountProcessorFactory,
-                        IStrategyStateManager strategyStateManager)
-        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyStateManager)
+                        IStrategyState strategyState)
+        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyState)
     {
     }
 
@@ -38,7 +39,7 @@ public class BaseExecutorTests
     private readonly Mock<IStrategyRepository> _mockStrategyRepository;
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
-    private readonly Mock<IStrategyStateManager> _mockStrategyStateManager;
+    private readonly Mock<IStrategyState> _mockStrategyState;
     private readonly TestExecutor _executor;
     private readonly CancellationToken _ct;
 
@@ -48,13 +49,13 @@ public class BaseExecutorTests
         _mockAccountProcessor = new Mock<IAccountProcessor>();
         _mockStrategyRepository = new Mock<IStrategyRepository>();
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
-        _mockStrategyStateManager = new Mock<IStrategyStateManager>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
+        _mockStrategyState = new Mock<IStrategyState>();
         _executor = new TestExecutor(_mockLogger.Object,
                                      _mockStrategyRepository.Object,
                                      _mockJavaScriptEvaluator.Object,
                                      _mockAccountProcessorFactory.Object,
-                                     _mockStrategyStateManager.Object);
+                                     _mockStrategyState.Object);
         _ct = CancellationToken.None;
     }
     [Fact]
@@ -94,11 +95,11 @@ public class BaseExecutorTests
             OrderPlacedTime = DateTime.UtcNow
         };
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromSeconds(1)); // Cancel after 1 second to end the loop
 
-        _mockStrategyStateManager
-            .Setup(x => x.GetStrategy(strategy.StrategyType, strategy.Id))
+        _mockStrategyState
+            .Setup(x => x.GetStrategyById(strategy.Id))
             .Returns(strategy);
 
         _mockAccountProcessor.SetupSuccessfulGetOrder(OrderStatus.New);
@@ -106,10 +107,10 @@ public class BaseExecutorTests
             .ReturnsAsync(true);
 
         // Act
-        await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy, cts.Token);
+        await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy.Id, cts.Token);
 
         // Assert
-        _mockStrategyStateManager.Verify(x => x.GetStrategy(strategy.StrategyType, strategy.Id), Times.AtLeastOnce);
+        _mockStrategyState.Verify(x => x.GetStrategyById(strategy.Id), Times.AtLeastOnce);
         _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
@@ -126,18 +127,18 @@ public class BaseExecutorTests
             OrderPlacedTime = DateTime.UtcNow
         };
 
-        var cts = new CancellationTokenSource();
+        using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromSeconds(1)); // Cancel after 1 second to end the loop
 
-        _mockStrategyStateManager
-            .Setup(x => x.GetStrategy(strategy.StrategyType, strategy.Id))
+        _mockStrategyState
+            .Setup(x => x.GetStrategyById(strategy.Id))
             .Returns(() => null);
 
         // Act
-        await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy, cts.Token);
+        await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy.Id, cts.Token);
 
         // Assert
-        _mockStrategyStateManager.Verify(x => x.GetStrategy(strategy.StrategyType, strategy.Id), Times.AtLeastOnce);
+        _mockStrategyState.Verify(x => x.GetStrategyById(strategy.Id), Times.AtLeastOnce);
         _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -232,7 +233,7 @@ public class BaseExecutorTests
 
         // Assert
         Assert.False(strategy.HasOpenOrder);
-        Assert.Equal(strategy.OrderId, 12345); // Order ID should remain the same
+        Assert.Equal(12345, strategy.OrderId); // Order ID should remain the same
         Assert.NotNull(strategy.OrderPlacedTime);
     }
 
@@ -394,11 +395,9 @@ public class BaseExecutorTests
             k.LowPrice == 39000m);
         var notification = new KlineClosedEvent(symbol, interval, kline);
 
-        _mockStrategyStateManager.Setup(x => x.GetState(It.IsAny<StrategyType>()))
-            .Returns(new Dictionary<string, Strategy>
-            {
-                ["1"] = new Strategy { Symbol = "BTCUSDT", Interval = "5m" }
-            });
+        _mockStrategyState
+            .Setup(x => x.All())
+            .Returns([new Strategy { Symbol = "BTCUSDT", Interval = "5m" }]);
 
         // Act
         await _executor.Handle(notification, CancellationToken.None);
@@ -422,13 +421,12 @@ public class BaseExecutorTests
             k.LowPrice == 39000m);
         var notification = new KlineClosedEvent(symbol, interval, kline);
 
-        var strategies = new Dictionary<string, Strategy>
-        {
-            ["1"] = new Strategy { Id = "1", Symbol = "BTCUSDT", Interval = "5m" },
-            ["2"] = new Strategy { Id = "2", Symbol = "BTCUSDT", Interval = "5m" }
+        var strategies = new Strategy[] {
+            new() { Id = "1", Symbol = "BTCUSDT", Interval = "5m" },
+            new() { Id = "2", Symbol = "BTCUSDT", Interval = "5m" }
         };
 
-        _mockStrategyStateManager.Setup(x => x.GetState(It.IsAny<StrategyType>()))
+        _mockStrategyState.Setup(x => x.All())
             .Returns(strategies);
 
         _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
@@ -465,8 +463,8 @@ public class BaseExecutorTests
             k.LowPrice == 39000m);
         var notification = new KlineClosedEvent(symbol, interval, kline);
 
-        _mockStrategyStateManager.Setup(x => x.GetState(It.IsAny<StrategyType>()))
-            .Returns(new Dictionary<string, Strategy> { ["1"] = strategy });
+        _mockStrategyState.Setup(x => x.All())
+            .Returns([strategy]);
 
         _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
             .Returns(_mockAccountProcessor.Object);

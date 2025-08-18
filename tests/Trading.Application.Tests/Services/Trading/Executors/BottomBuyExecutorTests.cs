@@ -1,6 +1,7 @@
 using Binance.Net.Enums;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.JavaScript;
@@ -17,7 +18,7 @@ public class BottomBuyExecutorTests
     private readonly Mock<IStrategyRepository> _mockStrategyRepository;
     private readonly Mock<IAccountProcessor> _mockAccountProcessor;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
-    private readonly Mock<IStrategyStateManager> _mockStrategyStateManager;
+    private readonly Mock<IStrategyState> _mockStrategyState;
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
 
     private readonly BottomBuyExecutor _executor;
@@ -29,12 +30,12 @@ public class BottomBuyExecutorTests
         _mockAccountProcessor = new Mock<IAccountProcessor>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
-        _mockStrategyStateManager = new Mock<IStrategyStateManager>();
+        _mockStrategyState = new Mock<IStrategyState>();
         _executor = new BottomBuyExecutor(_mockLogger.Object,
                                           _mockStrategyRepository.Object,
                                           _mockJavaScriptEvaluator.Object,
                                           _mockAccountProcessorFactory.Object,
-                                          _mockStrategyStateManager.Object);
+                                          _mockStrategyState.Object);
     }
 
     [Fact]

@@ -74,7 +74,6 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         {
             if (!_state.TryRemove(taskId, out taskInfo))
             {
-                _logger.LogWarning("Task not found to stop: Category={Category}, TaskId={TaskId}", category, taskId);
                 return;
             }
         }

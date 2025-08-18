@@ -21,19 +21,19 @@ public abstract class BaseExecutor :
     protected readonly ILogger _logger;
     protected readonly IStrategyRepository _strategyRepository;
     protected readonly JavaScriptEvaluator _javaScriptEvaluator;
-    protected readonly IStrategyStateManager _stateManager;
+    protected readonly IStrategyState _strategyState;
     protected readonly IAccountProcessorFactory _accountProcessorFactory;
     public BaseExecutor(ILogger logger,
                         IStrategyRepository strategyRepository,
                         JavaScriptEvaluator javaScriptEvaluator,
                         IAccountProcessorFactory accountProcessorFactory,
-                        IStrategyStateManager strategyStateManager)
+                        IStrategyState strategyState)
     {
         _strategyRepository = strategyRepository;
         _javaScriptEvaluator = javaScriptEvaluator;
         _logger = logger;
         _accountProcessorFactory = accountProcessorFactory;
-        _stateManager = strategyStateManager;
+        _strategyState = strategyState;
     }
 
     public abstract StrategyType StrategyType { get; }
@@ -87,22 +87,6 @@ public abstract class BaseExecutor :
 
         return (false, result);
     }
-    public virtual Dictionary<string, Strategy> GetMonitoringStrategy()
-    {
-        var strategies = _stateManager.GetState(StrategyType);
-        return strategies ?? [];
-    }
-    public void RemoveFromMonitoringStrategy(Strategy strategy)
-    {
-        _stateManager.RemoveStrategy(strategy);
-    }
-
-    public virtual async Task LoadActiveStratey(CancellationToken cancellationToken)
-    {
-        var strategies = await _strategyRepository.FindActiveStrategyByType(StrategyType, cancellationToken);
-        _stateManager.SetState(StrategyType, strategies.ToDictionary(x => x.Id));
-    }
-
     public virtual async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
         await CheckOrderStatus(accountProcessor, strategy, ct);
@@ -110,17 +94,17 @@ public abstract class BaseExecutor :
         await _strategyRepository.UpdateAsync(strategy.Id, strategy, ct);
     }
 
-    public virtual async Task ExecuteLoopAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken cancellationToken)
+    public virtual async Task ExecuteLoopAsync(IAccountProcessor accountProcessor, string strategyId, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
                 // get strategy from state manager to ensure we have the latest state
-                var s = _stateManager.GetStrategy(strategy.StrategyType, strategy.Id);
-                if (s != null)
+                var strategy = _strategyState.GetStrategyById(strategyId);
+                if (strategy != null)
                 {
-                    await ExecuteAsync(accountProcessor, s, cancellationToken);
+                    await ExecuteAsync(accountProcessor, strategy, cancellationToken);
                 }
                 await Task.Delay(TimeSpan.FromMinutes(2), cancellationToken);
             }
@@ -130,7 +114,7 @@ public abstract class BaseExecutor :
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error executing strategy {StrategyId}", strategy.Id);
+                _logger.LogError(ex, "Error executing strategy {StrategyId}", strategyId);
                 await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
             }
         }
@@ -191,7 +175,7 @@ public abstract class BaseExecutor :
     public virtual async Task CheckOrderStatus(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
         // NO open order skip check.
-        if (strategy.HasOpenOrder == false || strategy.OrderId is null)
+        if (!strategy.HasOpenOrder || strategy.OrderId is null)
         {
             strategy.HasOpenOrder = false;
             return;
@@ -273,8 +257,8 @@ public abstract class BaseExecutor :
 
     public virtual async Task Handle(KlineClosedEvent notification, CancellationToken cancellationToken)
     {
-        var strategies = GetMonitoringStrategy().Values.Where(x => x.Symbol == notification.Symbol
-                        && x.Interval == BinanceHelper.ConvertToIntervalString(notification.Interval));
+        var strategies = _strategyState.All().Where(x => x.Symbol == notification.Symbol
+            && x.Interval == BinanceHelper.ConvertToIntervalString(notification.Interval));
         var tasks = strategies.Select(async strategy =>
         {
             var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType);

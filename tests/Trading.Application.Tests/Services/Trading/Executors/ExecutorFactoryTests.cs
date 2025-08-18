@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Trading.Application.Services.Common;
+using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.Enums;
@@ -36,7 +38,11 @@ public class ExecutorFactoryTests
         services.AddScoped<DCABuyExecutor>();
         services.AddScoped<TopSellExecutor>();
         services.AddScoped<JavaScriptEvaluator>();
-        services.AddSingleton<IStrategyStateManager, StrategyStateManager>();
+        services.AddSingleton<IBackgroundTaskManager, BackgroundTaskManager>();
+        services.AddSingleton<IBackgroundTaskState, BackgroundTaskState>();
+        services.AddSingleton<IExecutorFactory, ExecutorFactory>();
+        services.AddSingleton<IStrategyState, StrategyState>();
+        services.AddSingleton<IStrategyTaskManager, StrategyTaskManager>();
 
         _serviceProvider = services.BuildServiceProvider();
         _factory = new ExecutorFactory(_serviceProvider);
