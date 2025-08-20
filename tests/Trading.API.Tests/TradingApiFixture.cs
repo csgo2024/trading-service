@@ -8,9 +8,9 @@ using Microsoft.Extensions.Hosting;
 using MongoDB.Driver;
 using Testcontainers.MongoDb;
 using Trading.API.HostServices;
+using Trading.Application.DomainEventHandlers;
 using Trading.Application.Services.Alerts;
-using Trading.Application.Services.Common;
-using Trading.Application.Services.Trading;
+using Trading.Application.Services.Shared;
 
 namespace Trading.API.Tests;
 
@@ -132,7 +132,7 @@ public class TradingApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
     {
         using (var scope = Services.CreateScope())
         {
-            var taskManager = scope.ServiceProvider.GetService<IBackgroundTaskManager>();
+            var taskManager = scope.ServiceProvider.GetService<ITaskManager>();
             if (taskManager != null)
             {
                 await taskManager.StopAsync();

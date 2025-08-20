@@ -49,6 +49,7 @@ public class Startup
         });
         services.AddHostedService<AlertHostService>();
         services.AddHostedService<TradingHostService>();
+        services.AddHostedService<StreamHostService>();
         services.AddTradingServices();
         Exchange.Binance.ServiceCollectionExtensions.AddBinance(services, Configuration);
     }

@@ -14,17 +14,17 @@ namespace Trading.Application.Tests.Commands;
 
 public class CreateStrategyCommandHandlerTests
 {
-    private readonly Mock<IStrategyRepository> _strategyRepositoryMock;
-    private readonly Mock<IMediator> _mediatorMock;
-    private readonly Mock<ILogger<CreateStrategyCommandHandler>> _loggerMock;
+    private readonly Mock<IStrategyRepository> _mockStrategyRepository;
+    private readonly Mock<IMediator> _mockMediator;
+    private readonly Mock<ILogger<CreateStrategyCommandHandler>> _mockLogger;
     private readonly CreateStrategyCommandHandler _handler;
 
     public CreateStrategyCommandHandlerTests()
     {
-        _strategyRepositoryMock = new Mock<IStrategyRepository>();
-        _mediatorMock = new Mock<IMediator>();
-        _loggerMock = new Mock<ILogger<CreateStrategyCommandHandler>>();
-        _handler = new CreateStrategyCommandHandler(_strategyRepositoryMock.Object, _loggerMock.Object);
+        _mockStrategyRepository = new Mock<IStrategyRepository>();
+        _mockMediator = new Mock<IMediator>();
+        _mockLogger = new Mock<ILogger<CreateStrategyCommandHandler>>();
+        _handler = new CreateStrategyCommandHandler(_mockStrategyRepository.Object, _mockLogger.Object);
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class CreateStrategyCommandHandlerTests
         };
 
         Strategy? capturedStrategy = null;
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .Callback<Strategy, CancellationToken>((strategy, _) => capturedStrategy = strategy)
             .ReturnsAsync((Strategy s, CancellationToken _) => s);
@@ -65,7 +65,7 @@ public class CreateStrategyCommandHandlerTests
         Assert.True(result.CreatedAt > DateTime.Now.AddMinutes(-1));
 
         // Verify repository call
-        _strategyRepositoryMock.Verify(
+        _mockStrategyRepository.Verify(
             x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -95,10 +95,10 @@ public class CreateStrategyCommandHandlerTests
         Assert.Contains(expectedError, exception.Message);
 
         // Verify no repository calls or events
-        _strategyRepositoryMock.Verify(
+        _mockStrategyRepository.Verify(
             x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
             Times.Never);
-        _mediatorMock.Verify(
+        _mockMediator.Verify(
             x => x.Publish(It.IsAny<StrategyCreatedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -162,7 +162,7 @@ public class CreateStrategyCommandHandlerTests
         };
 
         var expectedException = new InvalidOperationException("Test exception");
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(expectedException);
 
@@ -171,7 +171,7 @@ public class CreateStrategyCommandHandlerTests
             () => _handler.Handle(command, CancellationToken.None));
 
         // Verify no events were published
-        _mediatorMock.Verify(
+        _mockMediator.Verify(
             x => x.Publish(It.IsAny<StrategyCreatedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }

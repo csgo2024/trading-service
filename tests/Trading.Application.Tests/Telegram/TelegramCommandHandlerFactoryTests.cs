@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Telegram.Bot;
 using Trading.Application.Services.Alerts;
-using Trading.Application.Services.Common;
+using Trading.Application.Services.Shared;
 using Trading.Application.Telegram;
 using Trading.Application.Telegram.Handlers;
 using Trading.Common.JavaScript;
@@ -32,17 +32,13 @@ public class TelegramCommandHandlerFactoryTests
         services.AddSingleton(Mock.Of<IStrategyRepository>());
         services.AddSingleton(Mock.Of<IAlertRepository>());
         services.AddSingleton(Mock.Of<ITelegramBotClient>()); // Add TelegramBotClient mock
+        services.AddSingleton(Mock.Of<IAlertNotificationService>()); // Add TelegramBotClient mock
+
+        var mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
+        services.AddSingleton(mockState);
 
         var jsEvaluatorMock = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
         services.AddSingleton(jsEvaluatorMock.Object);
-
-        var alertNotificationMock = new Mock<AlertNotificationService>(
-            Mock.Of<ILogger<AlertNotificationService>>(),
-            Mock.Of<IAlertRepository>(),
-            jsEvaluatorMock.Object,
-            Mock.Of<IBackgroundTaskManager>()
-        );
-        services.AddSingleton(alertNotificationMock.Object);
 
         services.AddTransient<HelpCommandHandler>();
         services.AddTransient<StrategyCommandHandler>();

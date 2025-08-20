@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
-using Trading.Application.Services.Common;
+using Trading.Application.IntegrationEvents.Events;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Common.Enums;
 using Trading.Common.JavaScript;
@@ -15,7 +16,7 @@ public class CloseSellExecutor : BaseExecutor
         IAccountProcessorFactory accountProcessorFactory,
         IStrategyRepository strategyRepository,
         JavaScriptEvaluator javaScriptEvaluator,
-        IStrategyState stateManager)
+        GlobalState stateManager)
         : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, stateManager)
     {
     }

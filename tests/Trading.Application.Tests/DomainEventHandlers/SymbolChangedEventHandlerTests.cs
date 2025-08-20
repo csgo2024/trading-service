@@ -1,20 +1,21 @@
 using Moq;
-using Trading.Application.Services.Alerts;
+using Trading.Application.DomainEventHandlers;
+using Trading.Application.Services.Shared;
 using Trading.Domain.Entities;
 using Trading.Domain.Events;
 
-namespace Trading.Application.Tests.Services.Alerts;
+namespace Trading.Application.Tests.DomainEventHandlers;
 
-public class KlineStreamEventHandlerTests
+public class SymbolChangedEventHandlerTests
 {
     private readonly Mock<IKlineStreamManager> _mockStreamManager;
-    private readonly KlineStreamEventHandler _handler;
+    private readonly SymbolChangedEventHandler _handler;
     private readonly CancellationTokenSource _cts;
 
-    public KlineStreamEventHandlerTests()
+    public SymbolChangedEventHandlerTests()
     {
         _mockStreamManager = new Mock<IKlineStreamManager>();
-        _handler = new KlineStreamEventHandler(_mockStreamManager.Object);
+        _handler = new SymbolChangedEventHandler(_mockStreamManager.Object);
         _cts = new CancellationTokenSource();
     }
 

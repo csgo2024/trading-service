@@ -7,13 +7,13 @@ namespace Trading.Application.Tests.Commands;
 
 public class DeleteAlertCommandHandlerTests
 {
-    private readonly Mock<IAlertRepository> _alertRepositoryMock;
+    private readonly Mock<IAlertRepository> _mockAlertRepository;
     private readonly DeleteAlertCommandHandler _handler;
 
     public DeleteAlertCommandHandlerTests()
     {
-        _alertRepositoryMock = new Mock<IAlertRepository>();
-        _handler = new DeleteAlertCommandHandler(_alertRepositoryMock.Object);
+        _mockAlertRepository = new Mock<IAlertRepository>();
+        _handler = new DeleteAlertCommandHandler(_mockAlertRepository.Object);
     }
 
     [Fact]
@@ -26,11 +26,11 @@ public class DeleteAlertCommandHandlerTests
             Id = alert.Id
         };
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.GetByIdAsync(alert.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(alert);
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.DeleteAsync(alert, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
         // Act
@@ -40,7 +40,7 @@ public class DeleteAlertCommandHandlerTests
         Assert.True(result);
 
         // Verify repository call
-        _alertRepositoryMock.Verify(
+        _mockAlertRepository.Verify(
             x => x.DeleteAsync(alert, It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -55,7 +55,7 @@ public class DeleteAlertCommandHandlerTests
             Id = alert.Id
         };
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.GetByIdAsync(alert.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(null as Alert);
 
@@ -66,7 +66,7 @@ public class DeleteAlertCommandHandlerTests
         Assert.False(result);
 
         // Verify repository call
-        _alertRepositoryMock.Verify(
+        _mockAlertRepository.Verify(
             x => x.DeleteAsync(alert, It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -79,7 +79,7 @@ public class DeleteAlertCommandHandlerTests
             () => _handler.Handle(null!, CancellationToken.None));
 
         // Verify no repository calls or events
-        _alertRepositoryMock.Verify(
+        _mockAlertRepository.Verify(
             x => x.DeleteAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -93,11 +93,11 @@ public class DeleteAlertCommandHandlerTests
         var command = new DeleteAlertCommand { Id = alertId };
         var expectedException = new InvalidOperationException("Database error");
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.DeleteAsync(alert, It.IsAny<CancellationToken>()))
             .ThrowsAsync(expectedException);
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.GetByIdAsync(alert.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(alert);
 

@@ -2,8 +2,9 @@ using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Common;
-using Trading.Application.Services.Trading;
+using Trading.Application.IntegrationEvents.EventHandlers;
+using Trading.Application.IntegrationEvents.Events;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.Enums;
@@ -13,14 +14,14 @@ using Trading.Domain.IRepositories;
 using AccountType = Trading.Common.Enums.AccountType;
 using StrategyType = Trading.Common.Enums.StrategyType;
 
-namespace Trading.Application.Tests.Services.Common;
+namespace Trading.Application.Tests.IntegrationEvents.EventHandlers;
 
 public class KlineClosedEventHandlerTests
 {
     private readonly Mock<ILogger<KlineClosedEventHandler>> _mockLogger;
     private readonly Mock<IStrategyRepository> _mockStrategyRepository;
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
-    private readonly Mock<IStrategyState> _mockStrategyState;
+    private readonly Mock<GlobalState> _mockState;
     private readonly Mock<IExecutorFactory> _mockExecutorFactory;
     private readonly Mock<IAccountProcessor> _mockAccountProcessor;
     private readonly Mock<BaseExecutor> _mockExecutor;
@@ -31,7 +32,7 @@ public class KlineClosedEventHandlerTests
         _mockLogger = new Mock<ILogger<KlineClosedEventHandler>>();
         _mockStrategyRepository = new Mock<IStrategyRepository>();
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
-        _mockStrategyState = new Mock<IStrategyState>();
+        _mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
         _mockExecutorFactory = new Mock<IExecutorFactory>();
         _mockAccountProcessor = new Mock<IAccountProcessor>();
         var mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
@@ -40,14 +41,14 @@ public class KlineClosedEventHandlerTests
             Mock.Of<IStrategyRepository>(),
             mockJavaScriptEvaluator.Object,
             Mock.Of<IAccountProcessorFactory>(),
-            Mock.Of<IStrategyState>()
+            _mockState.Object
         );
 
         _handler = new KlineClosedEventHandler(
             _mockLogger.Object,
             _mockStrategyRepository.Object,
             _mockAccountProcessorFactory.Object,
-            _mockStrategyState.Object,
+            _mockState.Object,
             _mockExecutorFactory.Object
         );
     }
@@ -61,7 +62,7 @@ public class KlineClosedEventHandlerTests
 
         var klineEvent = new KlineClosedEvent("BTCUSDT", KlineInterval.OneHour, mockKline.Object);
 
-        _mockStrategyState.Setup(x => x.All())
+        _mockState.Setup(x => x.GetAllStrategies())
             .Returns([]);
 
         // Act
@@ -91,7 +92,7 @@ public class KlineClosedEventHandlerTests
             AccountType = AccountType.Spot
         };
 
-        _mockStrategyState.Setup(x => x.All())
+        _mockState.Setup(x => x.GetAllStrategies())
             .Returns([strategy]);
 
         _mockExecutorFactory.Setup(x => x.GetExecutor(StrategyType.CloseBuy))
@@ -131,7 +132,7 @@ public class KlineClosedEventHandlerTests
             Status = Status.Running
         };
 
-        _mockStrategyState.Setup(x => x.All())
+        _mockState.Setup(x => x.GetAllStrategies())
             .Returns([strategy]);
 
         _mockExecutorFactory.Setup(x => x.GetExecutor(StrategyType.CloseBuy))
@@ -171,7 +172,7 @@ public class KlineClosedEventHandlerTests
             AccountType = AccountType.Spot
         };
 
-        _mockStrategyState.Setup(x => x.All())
+        _mockState.Setup(x => x.GetAllStrategies())
             .Returns([strategy]);
 
         _mockExecutorFactory.Setup(x => x.GetExecutor(StrategyType.CloseBuy))
@@ -217,7 +218,7 @@ public class KlineClosedEventHandlerTests
             }
         };
 
-        _mockStrategyState.Setup(x => x.All())
+        _mockState.Setup(x => x.GetAllStrategies())
             .Returns(strategies);
 
         _mockExecutorFactory.Setup(x => x.GetExecutor(It.IsAny<StrategyType>()))

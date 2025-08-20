@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Trading;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.JavaScript;
@@ -17,7 +17,7 @@ public class DCABuyExecutorTests
     private readonly Mock<IStrategyRepository> _mockStrategyRepository;
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
-    private readonly Mock<IStrategyState> _mockStrategyState;
+    private readonly Mock<GlobalState> _mockState;
     private readonly Mock<IAccountProcessor> _mockAccountProcessor;
     private readonly DCABuyExecutor _executor;
     private readonly CancellationToken _ct;
@@ -29,13 +29,13 @@ public class DCABuyExecutorTests
         _mockStrategyRepository = new Mock<IStrategyRepository>();
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
-        _mockStrategyState = new Mock<IStrategyState>();
+        _mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
         _executor = new DCABuyExecutor(
             _mockLogger.Object,
             _mockStrategyRepository.Object,
             _mockJavaScriptEvaluator.Object,
             _mockAccountProcessorFactory.Object,
-            _mockStrategyState.Object
+            _mockState.Object
         );
         _ct = CancellationToken.None;
     }

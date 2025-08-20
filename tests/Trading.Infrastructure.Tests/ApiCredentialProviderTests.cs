@@ -14,21 +14,21 @@ public class ApiCredentialProviderTests
     private const string TestApiKey = "test_api_key";
     private const string TestApiSecret = "test_api_secret";
 
-    private readonly Mock<IConfiguration> _configurationMock;
-    private readonly Mock<ICredentialSettingRepository> _repositoryMock;
-    private readonly Mock<IOptions<CredentialSettingV2>> _optionsMock;
+    private readonly Mock<IConfiguration> _mockConfiguration;
+    private readonly Mock<ICredentialSettingRepository> _mockRepository;
+    private readonly Mock<IOptions<CredentialSettingV2>> _mockOptions;
     private readonly ApiCredentialProvider _provider;
 
     public ApiCredentialProviderTests()
     {
-        _configurationMock = new Mock<IConfiguration>();
-        _repositoryMock = new Mock<ICredentialSettingRepository>();
-        _optionsMock = new Mock<IOptions<CredentialSettingV2>>();
+        _mockConfiguration = new Mock<IConfiguration>();
+        _mockRepository = new Mock<ICredentialSettingRepository>();
+        _mockOptions = new Mock<IOptions<CredentialSettingV2>>();
 
         _provider = new ApiCredentialProvider(
-            _optionsMock.Object,
-            _configurationMock.Object,
-            _repositoryMock.Object
+            _mockOptions.Object,
+            _mockConfiguration.Object,
+            _mockRepository.Object
         );
     }
 
@@ -49,8 +49,8 @@ public class ApiCredentialProviderTests
         var (apiKeyBytes, apiSecretBytes, privateKey) = GetEncryptedTestDataBytes();
         var settings = new CredentialSetting { ApiKey = apiKeyBytes, ApiSecret = apiSecretBytes };
 
-        _configurationMock.Setup(x => x.GetSection("PrivateKey").Value).Returns(privateKey);
-        _repositoryMock.Setup(x => x.GetEncryptedRawSetting()).Returns(settings);
+        _mockConfiguration.Setup(x => x.GetSection("PrivateKey").Value).Returns(privateKey);
+        _mockRepository.Setup(x => x.GetEncryptedRawSetting()).Returns(settings);
 
         // Act
         var result = _provider.GetCredentialSettingsV1();
@@ -64,8 +64,8 @@ public class ApiCredentialProviderTests
     public void GetBinanceSettingsV1_WithNullSettings_ShouldNot_ReturnsEmptySettings()
     {
         // Arrange
-        _configurationMock.Setup(x => x.GetSection("PrivateKey").Value).Returns(string.Empty);
-        _repositoryMock.Setup(x => x.GetEncryptedRawSetting()).Returns(null as CredentialSetting);
+        _mockConfiguration.Setup(x => x.GetSection("PrivateKey").Value).Returns(string.Empty);
+        _mockRepository.Setup(x => x.GetEncryptedRawSetting()).Returns(null as CredentialSetting);
 
         // Act
         var result = _provider.GetCredentialSettingsV1();
@@ -82,7 +82,7 @@ public class ApiCredentialProviderTests
         // Arrange
         var (apiKeyBase64, apiSecretBase64, privateKey) = GetEncryptedTestDataBase64();
 
-        _optionsMock.Setup(x => x.Value).Returns(new CredentialSettingV2
+        _mockOptions.Setup(x => x.Value).Returns(new CredentialSettingV2
         {
             ApiKey = apiKeyBase64,
             ApiSecret = apiSecretBase64,

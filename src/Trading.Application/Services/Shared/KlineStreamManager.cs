@@ -2,11 +2,11 @@ using Binance.Net.Interfaces;
 using CryptoExchange.Net.Objects.Sockets;
 using MediatR;
 using Microsoft.Extensions.Logging;
-using Trading.Application.Services.Common;
+using Trading.Application.IntegrationEvents.Events;
 using Trading.Exchange.Binance.Helpers;
 using Trading.Exchange.Binance.Wrappers.Clients;
 
-namespace Trading.Application.Services.Alerts;
+namespace Trading.Application.Services.Shared;
 
 public interface IKlineStreamManager : IDisposable
 {
@@ -16,22 +16,20 @@ public interface IKlineStreamManager : IDisposable
 
 public class KlineStreamManager : IKlineStreamManager
 {
-    private DateTime _lastConnectionTime = DateTime.UtcNow;
-    private UpdateSubscription? _subscription;
     private readonly BinanceSocketClientUsdFuturesApiWrapper _usdFutureSocketClient;
     private readonly ILogger<KlineStreamManager> _logger;
     private readonly IMediator _mediator;
-    private readonly TimeSpan _reconnectInterval = TimeSpan.FromMinutes(12 * 60);
-    private static readonly HashSet<string> _listenedIntervals = [];
-    private static readonly HashSet<string> _listenedSymbols = [];
-
-    public KlineStreamManager(ILogger<KlineStreamManager> logger,
-                              IMediator mediator,
-                              BinanceSocketClientUsdFuturesApiWrapper usdFutureSocketClient)
+    private readonly GlobalState _globalState;
+    public KlineStreamManager(
+        ILogger<KlineStreamManager> logger,
+        IMediator mediator,
+        BinanceSocketClientUsdFuturesApiWrapper usdFutureSocketClient,
+        GlobalState globalState)
     {
         _logger = logger;
         _mediator = mediator;
         _usdFutureSocketClient = usdFutureSocketClient;
+        _globalState = globalState;
         _logger.LogInformation("KlineStreamManager created : {HashCode}", GetHashCode());
     }
 
@@ -44,10 +42,11 @@ public class KlineStreamManager : IKlineStreamManager
 
         await CloseExistingSubscription();
 
-        var mergedSymbols = new HashSet<string>(_listenedSymbols);
+        var mergedSymbols = _globalState.GetAllSymbols();
         mergedSymbols.UnionWith(symbols);
-        var mergedIntervals = new HashSet<string>(_listenedIntervals);
+        var mergedIntervals = _globalState.GetAllIntervals();
         mergedIntervals.UnionWith(intervals);
+
         var result = await _usdFutureSocketClient.ExchangeData.SubscribeToKlineUpdatesAsync(
             mergedSymbols,
             mergedIntervals.Select(BinanceHelper.ConvertToKlineInterval),
@@ -59,16 +58,16 @@ public class KlineStreamManager : IKlineStreamManager
             _logger.LogError("Failed to subscribe: {@Error}", result.Error);
             return false;
         }
-        _listenedSymbols.UnionWith(mergedSymbols);
-        _listenedIntervals.UnionWith(mergedIntervals);
-        _subscription = result.Data;
-        _lastConnectionTime = DateTime.UtcNow;
 
-        // SubscribeToEvents(_subscription);
+        _globalState.TryAddSymbols(mergedSymbols);
+        _globalState.TryAddIntervals(mergedIntervals);
+        _globalState.CurrentSubscription = result.Data;
+        _globalState.LastConnectionTime = DateTime.UtcNow;
+
         _logger.LogInformation("Subscribed to {Count} symbols: {@Symbols} intervals: {@Intervals}",
-                               _listenedSymbols.Count,
-                               _listenedSymbols,
-                               _listenedIntervals);
+                               mergedSymbols.Count,
+                               mergedSymbols,
+                               mergedIntervals);
         return true;
     }
 
@@ -86,13 +85,13 @@ public class KlineStreamManager : IKlineStreamManager
 
     private async Task CloseExistingSubscription()
     {
-        if (_subscription != null)
+        var subscription = _globalState.CurrentSubscription;
+        if (subscription != null)
         {
             try
             {
-                // UnsubscribeEvents(_subscription);
-                await _subscription.CloseAsync();
-                _subscription = null;
+                await subscription.CloseAsync();
+                _globalState.CurrentSubscription = null;
             }
             catch (Exception ex)
             {
@@ -100,11 +99,13 @@ public class KlineStreamManager : IKlineStreamManager
             }
         }
     }
-    public bool NeedsReconnection() => DateTime.UtcNow - _lastConnectionTime > _reconnectInterval;
+
+    public bool NeedsReconnection() => _globalState.NeedsReconnection();
 
     public void Dispose()
     {
-        _subscription?.CloseAsync().Wait();
+        _globalState.CurrentSubscription?.CloseAsync().Wait();
+        _globalState.ClearStreamState();
     }
 
 }

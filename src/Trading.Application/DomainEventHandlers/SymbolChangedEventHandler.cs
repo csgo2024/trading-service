@@ -1,20 +1,17 @@
 using MediatR;
+using Trading.Application.Services.Shared;
 using Trading.Domain.Events;
 
-namespace Trading.Application.Services.Alerts;
+namespace Trading.Application.DomainEventHandlers;
 
-public interface IKlineStreamEventHandler :
+public class SymbolChangedEventHandler :
     INotificationHandler<AlertResumedEvent>,
     INotificationHandler<AlertCreatedEvent>,
     INotificationHandler<StrategyCreatedEvent>
 {
-}
-
-public class KlineStreamEventHandler : IKlineStreamEventHandler
-{
     private readonly IKlineStreamManager _klineStreamManager;
 
-    public KlineStreamEventHandler(IKlineStreamManager klineStreamManager)
+    public SymbolChangedEventHandler(IKlineStreamManager klineStreamManager)
     {
         _klineStreamManager = klineStreamManager;
     }

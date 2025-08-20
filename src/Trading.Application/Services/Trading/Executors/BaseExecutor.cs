@@ -2,7 +2,8 @@ using Binance.Net.Enums;
 using Binance.Net.Objects.Models;
 using CryptoExchange.Net.Objects;
 using Microsoft.Extensions.Logging;
-using Trading.Application.Services.Common;
+using Trading.Application.IntegrationEvents.Events;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Enums;
@@ -18,19 +19,19 @@ public abstract class BaseExecutor
     protected readonly ILogger _logger;
     protected readonly IStrategyRepository _strategyRepository;
     protected readonly JavaScriptEvaluator _javaScriptEvaluator;
-    protected readonly IStrategyState _strategyState;
+    protected readonly GlobalState _globalState;
     protected readonly IAccountProcessorFactory _accountProcessorFactory;
     public BaseExecutor(ILogger logger,
                         IStrategyRepository strategyRepository,
                         JavaScriptEvaluator javaScriptEvaluator,
                         IAccountProcessorFactory accountProcessorFactory,
-                        IStrategyState strategyState)
+                        GlobalState globalState)
     {
         _strategyRepository = strategyRepository;
         _javaScriptEvaluator = javaScriptEvaluator;
         _logger = logger;
         _accountProcessorFactory = accountProcessorFactory;
-        _strategyState = strategyState;
+        _globalState = globalState;
     }
 
     public abstract StrategyType StrategyType { get; }
@@ -98,7 +99,7 @@ public abstract class BaseExecutor
             try
             {
                 // get strategy from state manager to ensure we have the latest state
-                var strategy = _strategyState.GetStrategyById(strategyId);
+                _globalState.TryGetStrategy(strategyId, out var strategy);
                 if (strategy != null)
                 {
                     await ExecuteAsync(accountProcessor, strategy, cancellationToken);

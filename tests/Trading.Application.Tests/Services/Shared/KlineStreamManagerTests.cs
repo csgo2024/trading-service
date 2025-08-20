@@ -6,18 +6,18 @@ using CryptoExchange.Net.Objects.Sockets;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Alerts;
+using Trading.Application.Services.Shared;
 using Trading.Exchange.Binance.Wrappers.Clients;
 
-namespace Trading.Application.Tests.Services.Alerts;
+namespace Trading.Application.Tests.Services.Shared;
 
 public class KlineStreamManagerTests
 {
     private readonly Mock<ILogger<KlineStreamManager>> _mockLogger;
     private readonly Mock<IMediator> _mockMediator;
+    private readonly Mock<GlobalState> _mockState;
     private readonly BinanceSocketClientUsdFuturesApiWrapper _usdFutureSocketClient;
     private readonly KlineStreamManager _manager;
-    private readonly CancellationTokenSource _cts;
 
     private readonly Mock<IBinanceSocketClientUsdFuturesApiAccount> _mockAccount;
     private readonly Mock<IBinanceSocketClientUsdFuturesApiTrading> _mockTrading;
@@ -27,7 +27,7 @@ public class KlineStreamManagerTests
     {
         _mockLogger = new Mock<ILogger<KlineStreamManager>>();
         _mockMediator = new Mock<IMediator>();
-        _cts = new CancellationTokenSource();
+        _mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
 
         _mockAccount = new Mock<IBinanceSocketClientUsdFuturesApiAccount>();
         _mockTrading = new Mock<IBinanceSocketClientUsdFuturesApiTrading>();
@@ -41,7 +41,10 @@ public class KlineStreamManagerTests
         _manager = new KlineStreamManager(
             _mockLogger.Object,
             _mockMediator.Object,
-            _usdFutureSocketClient);
+            _usdFutureSocketClient,
+            _mockState.Object);
+        _mockState.Setup(x => x.GetAllSymbols()).Returns([]);
+        _mockState.Setup(x => x.GetAllIntervals()).Returns([]);
     }
 
     [Fact]
@@ -61,7 +64,8 @@ public class KlineStreamManagerTests
             .ReturnsAsync(new CallResult<UpdateSubscription>(null, null, null));
 
         // Act
-        var result = await _manager.SubscribeSymbols(symbols, intervals, _cts.Token);
+        using var cts = new CancellationTokenSource();
+        var result = await _manager.SubscribeSymbols(symbols, intervals, cts.Token);
 
         // Assert
         Assert.True(result);
@@ -83,7 +87,8 @@ public class KlineStreamManagerTests
         var intervals = new HashSet<string> { "1m" };
 
         // Act
-        var result = await _manager.SubscribeSymbols(emptySymbols, intervals, _cts.Token);
+        using var cts = new CancellationTokenSource();
+        var result = await _manager.SubscribeSymbols(emptySymbols, intervals, cts.Token);
 
         // Assert
         Assert.False(result);
@@ -114,43 +119,11 @@ public class KlineStreamManagerTests
             .ReturnsAsync(new CallResult<UpdateSubscription>(null, null, new CantConnectError()));
 
         // Act
-        var result = await _manager.SubscribeSymbols(symbols, intervals, _cts.Token);
+        using var cts = new CancellationTokenSource();
+        var result = await _manager.SubscribeSymbols(symbols, intervals, cts.Token);
 
         // Assert
         Assert.False(result);
         _mockLogger.VerifyLoggingOnce(LogLevel.Error, "");
     }
-
-    [Fact]
-    public void NeedsReconnection_AfterReconnectInterval_ShouldReturnTrue()
-    {
-        // Arrange
-        var lastConnectionTime = DateTime.UtcNow.AddHours(-13);
-        var field = typeof(KlineStreamManager).GetField("_lastConnectionTime",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        field?.SetValue(_manager, lastConnectionTime);
-
-        // Act
-        var result = _manager.NeedsReconnection();
-
-        // Assert
-        Assert.True(result);
-    }
-
-    [Fact]
-    public void NeedsReconnection_BeforeReconnectInterval_ShouldReturnFalse()
-    {
-        // Arrange
-        var lastConnectionTime = DateTime.UtcNow.AddHours(-1);
-        var field = typeof(KlineStreamManager).GetField("_lastConnectionTime",
-            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-        field?.SetValue(_manager, lastConnectionTime);
-
-        // Act
-        var result = _manager.NeedsReconnection();
-
-        // Assert
-        Assert.False(result);
-    }
-
 }

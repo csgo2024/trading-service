@@ -1,19 +1,21 @@
 using Moq;
+using Trading.Application.DomainEventHandlers;
 using Trading.Application.Services.Trading;
 using Trading.Domain.Entities;
 using Trading.Domain.Events;
 
-namespace Trading.Application.Tests.Services.Trading;
+namespace Trading.Application.Tests.DomainEventHandlers;
+
 public class StrategyEventHandlerTests
 {
-    private readonly Mock<IStrategyTaskManager> _taskManagerMock;
+    private readonly Mock<IStrategyTaskManager> _mockTaskManager;
     private readonly StrategyEventHandler _handler;
     private readonly Strategy _strategy;
 
     public StrategyEventHandlerTests()
     {
-        _taskManagerMock = new Mock<IStrategyTaskManager>();
-        _handler = new StrategyEventHandler(_taskManagerMock.Object);
+        _mockTaskManager = new Mock<IStrategyTaskManager>();
+        _handler = new StrategyEventHandler(_mockTaskManager.Object);
         _strategy = new Strategy { Id = "test-id" };
     }
 
@@ -23,7 +25,7 @@ public class StrategyEventHandlerTests
         var evt = new StrategyCreatedEvent(_strategy);
         await _handler.Handle(evt, CancellationToken.None);
 
-        _taskManagerMock.Verify(m => m.HandleCreatedAsync(_strategy, It.IsAny<CancellationToken>()), Times.Once);
+        _mockTaskManager.Verify(m => m.StartAsync(_strategy, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -32,7 +34,7 @@ public class StrategyEventHandlerTests
         var evt = new StrategyDeletedEvent(_strategy);
         await _handler.Handle(evt, CancellationToken.None);
 
-        _taskManagerMock.Verify(m => m.HandleDeletedAsync(_strategy, It.IsAny<CancellationToken>()), Times.Once);
+        _mockTaskManager.Verify(m => m.StopAsync(_strategy, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -41,7 +43,7 @@ public class StrategyEventHandlerTests
         var evt = new StrategyPausedEvent(_strategy);
         await _handler.Handle(evt, CancellationToken.None);
 
-        _taskManagerMock.Verify(m => m.HandlePausedAsync(_strategy, It.IsAny<CancellationToken>()), Times.Once);
+        _mockTaskManager.Verify(m => m.PauseAsync(_strategy, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -50,6 +52,6 @@ public class StrategyEventHandlerTests
         var evt = new StrategyResumedEvent(_strategy);
         await _handler.Handle(evt, CancellationToken.None);
 
-        _taskManagerMock.Verify(m => m.HandleResumedAsync(_strategy, It.IsAny<CancellationToken>()), Times.Once);
+        _mockTaskManager.Verify(m => m.ResumeAsync(_strategy, It.IsAny<CancellationToken>()), Times.Once);
     }
 }

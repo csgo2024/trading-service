@@ -15,21 +15,21 @@ namespace Trading.Application.Tests.Telegram.Handlers;
 
 public class AlertCommandHandlerTests
 {
-    private readonly Mock<ILogger<AlertCommandHandler>> _loggerMock;
-    private readonly Mock<IMediator> _mediatorMock;
-    private readonly Mock<IAlertRepository> _alertRepositoryMock;
+    private readonly Mock<ILogger<AlertCommandHandler>> _mockLogger;
+    private readonly Mock<IMediator> _mockMediator;
+    private readonly Mock<IAlertRepository> _mockAlertRepository;
     private readonly AlertCommandHandler _handler;
 
     public AlertCommandHandlerTests()
     {
-        _loggerMock = new Mock<ILogger<AlertCommandHandler>>();
-        _mediatorMock = new Mock<IMediator>();
-        _alertRepositoryMock = new Mock<IAlertRepository>();
+        _mockLogger = new Mock<ILogger<AlertCommandHandler>>();
+        _mockMediator = new Mock<IMediator>();
+        _mockAlertRepository = new Mock<IAlertRepository>();
 
         _handler = new AlertCommandHandler(
-            _loggerMock.Object,
-            _mediatorMock.Object,
-            _alertRepositoryMock.Object);
+            _mockLogger.Object,
+            _mockMediator.Object,
+            _mockAlertRepository.Object);
     }
 
     [Theory]
@@ -38,36 +38,36 @@ public class AlertCommandHandlerTests
     public async Task HandleAsync_WithEmptyParameters_ReturnAlertInformation(Status status, string displayText)
     {
         // arrange
-        _alertRepositoryMock.Setup(x => x.GetAllAlerts())
+        _mockAlertRepository.Setup(x => x.GetAllAlerts())
             .ReturnsAsync([new Alert() { Symbol = "BTCUSDT", Status = status, Expression = "close > 100" }]);
         // Act
         await _handler.HandleAsync("");
 
         // Assert
-        _loggerMock.Verify(
+        _mockLogger.Verify(
             x => x.BeginScope(
                 It.Is<TelegramLoggerScope>(x => x.ParseMode == ParseMode.Html)),
             Times.Once);
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, displayText);
+        _mockLogger.VerifyLoggingOnce(LogLevel.Information, displayText);
     }
 
     [Fact]
     public async Task HandleAsync_WithEmptyParameters_ShouldLogInformation_WhenNoAlerts()
     {
         // arrange
-        _alertRepositoryMock.Setup(x => x.GetAllAlerts())
+        _mockAlertRepository.Setup(x => x.GetAllAlerts())
             .ReturnsAsync([]);
         // Act
         await _handler.HandleAsync("");
 
         // Assert
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Alert is empty, please create and call later.");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Information, "Alert is empty, please create and call later.");
     }
     [Fact]
     public async Task HandleAsync_WithEmptyCommand_ClearsAllAlerts()
     {
         // Arrange
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.ClearAllAlertsAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(5);
 
@@ -75,9 +75,9 @@ public class AlertCommandHandlerTests
         await _handler.HandleAsync("empty");
 
         // Assert
-        _alertRepositoryMock.Verify(x => x.ClearAllAlertsAsync(It.IsAny<CancellationToken>()), Times.Once);
-        _mediatorMock.Verify(x => x.Publish(It.IsAny<AlertEmptyedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Alarms empty successfully");
+        _mockAlertRepository.Verify(x => x.ClearAllAlertsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockMediator.Verify(x => x.Publish(It.IsAny<AlertEmptyedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
+        _mockLogger.VerifyLoggingOnce(LogLevel.Information, "Alarms empty successfully");
     }
 
     [Fact]
@@ -87,7 +87,7 @@ public class AlertCommandHandlerTests
         var alertJson = """{"Symbol":"BTCUSDT","Expression":"close > 1000","Interval":"1h"}""";
         var command = new CreateAlertCommand { Symbol = "BTCUSDT", Expression = "close > 1000", Interval = "1h" };
 
-        _mediatorMock
+        _mockMediator
             .Setup(x => x.Send(It.IsAny<CreateAlertCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Alert());
 
@@ -95,7 +95,7 @@ public class AlertCommandHandlerTests
         await _handler.HandleAsync($"create {alertJson}");
 
         // Assert
-        _mediatorMock.Verify(x => x.Send(
+        _mockMediator.Verify(x => x.Send(
             It.Is<CreateAlertCommand>(c =>
                 c.Symbol == command.Symbol &&
                 c.Expression == command.Expression &&
@@ -119,7 +119,7 @@ public class AlertCommandHandlerTests
     {
         // Arrange
         var alertId = "test-alert-id";
-        _mediatorMock
+        _mockMediator
             .Setup(x => x.Send(It.IsAny<DeleteAlertCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -127,7 +127,7 @@ public class AlertCommandHandlerTests
         await _handler.HandleAsync($"delete {alertId}");
 
         // Assert
-        _mediatorMock.Verify(x => x.Send(
+        _mockMediator.Verify(x => x.Send(
             It.Is<DeleteAlertCommand>(c => c.Id == alertId),
             It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -137,7 +137,7 @@ public class AlertCommandHandlerTests
     {
         // Arrange
         var alertId = "test-alert-id";
-        _mediatorMock
+        _mockMediator
             .Setup(x => x.Send(It.IsAny<DeleteAlertCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
@@ -154,7 +154,7 @@ public class AlertCommandHandlerTests
         var alertId = "test-alert-id";
         var alert = new Alert { Id = alertId, Status = Status.Running };
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.GetByIdAsync(alertId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(alert);
 
@@ -162,7 +162,7 @@ public class AlertCommandHandlerTests
         await _handler.HandleAsync($"pause {alertId}");
 
         // Assert
-        _alertRepositoryMock.Verify(x => x.UpdateAsync(
+        _mockAlertRepository.Verify(x => x.UpdateAsync(
             alertId,
             It.Is<Alert>(a => a.Status == Status.Paused),
             It.IsAny<CancellationToken>()), Times.Once);
@@ -175,7 +175,7 @@ public class AlertCommandHandlerTests
         var alertId = "test-alert-id";
         var alert = new Alert { Id = alertId, Status = Status.Paused };
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.GetByIdAsync(alertId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(alert);
 
@@ -183,7 +183,7 @@ public class AlertCommandHandlerTests
         await _handler.HandleAsync($"resume {alertId}");
 
         // Assert
-        _alertRepositoryMock.Verify(
+        _mockAlertRepository.Verify(
             x => x.UpdateAsync(alert.Id, alert, It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -195,7 +195,7 @@ public class AlertCommandHandlerTests
     {
         // Arrange
         var alertId = "nonexistent-id";
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.GetByIdAsync(alertId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(null as Alert);
 
@@ -203,7 +203,7 @@ public class AlertCommandHandlerTests
         await _handler.HandleAsync($"{command} {alertId}");
 
         // Assert
-        _loggerMock.VerifyLoggingOnce(LogLevel.Error, $"Not found alarm: {alertId}");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Error, $"Not found alarm: {alertId}");
     }
 
     [Theory]
@@ -215,7 +215,7 @@ public class AlertCommandHandlerTests
         var alertId = "test-alert-id";
         var alert = new Alert { Id = alertId, Status = status };
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.GetByIdAsync(alertId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(alert);
 
@@ -223,7 +223,7 @@ public class AlertCommandHandlerTests
         await _handler.HandleCallbackAsync(action, alertId);
 
         // Assert
-        _alertRepositoryMock.Verify(x => x.UpdateAsync(
+        _mockAlertRepository.Verify(x => x.UpdateAsync(
             alertId,
             It.Is<Alert>(a => a.Status != status),
             It.IsAny<CancellationToken>()), Times.Once);

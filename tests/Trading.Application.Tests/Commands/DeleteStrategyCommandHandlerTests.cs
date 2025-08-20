@@ -7,13 +7,13 @@ namespace Trading.Application.Tests.Commands;
 
 public class DeleteStrategyCommandHandlerTests
 {
-    private readonly Mock<IStrategyRepository> _strategyRepositoryMock;
+    private readonly Mock<IStrategyRepository> _mockStrategyRepository;
     private readonly DeleteStrategyCommandHandler _handler;
 
     public DeleteStrategyCommandHandlerTests()
     {
-        _strategyRepositoryMock = new Mock<IStrategyRepository>();
-        _handler = new DeleteStrategyCommandHandler(_strategyRepositoryMock.Object);
+        _mockStrategyRepository = new Mock<IStrategyRepository>();
+        _handler = new DeleteStrategyCommandHandler(_mockStrategyRepository.Object);
     }
 
     [Fact]
@@ -27,10 +27,10 @@ public class DeleteStrategyCommandHandlerTests
             Id = strategy.Id
         };
 
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.DeleteAsync(strategy, It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.GetByIdAsync(strategyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(strategy);
 
@@ -41,7 +41,7 @@ public class DeleteStrategyCommandHandlerTests
         Assert.True(result);
 
         // Verify repository call
-        _strategyRepositoryMock.Verify(
+        _mockStrategyRepository.Verify(
             x => x.DeleteAsync(strategy, It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -56,11 +56,11 @@ public class DeleteStrategyCommandHandlerTests
             Id = strategy.Id
         };
 
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.GetByIdAsync(strategy.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(null as Strategy);
 
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.DeleteAsync(strategy, It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
@@ -71,7 +71,7 @@ public class DeleteStrategyCommandHandlerTests
         Assert.False(result);
 
         // Verify repository call
-        _strategyRepositoryMock.Verify(
+        _mockStrategyRepository.Verify(
             x => x.DeleteAsync(strategy, It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -87,11 +87,11 @@ public class DeleteStrategyCommandHandlerTests
         };
         var expectedException = new InvalidOperationException("Database error");
 
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.GetByIdAsync(strategy.Id, It.IsAny<CancellationToken>()))
             .ReturnsAsync(strategy);
 
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.DeleteAsync(strategy, It.IsAny<CancellationToken>()))
             .ThrowsAsync(expectedException);
 

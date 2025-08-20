@@ -14,21 +14,21 @@ namespace Trading.Application.Tests.Telegram.Handlers;
 
 public class StrategyCommandHandlerTests
 {
-    private readonly Mock<IMediator> _mediatorMock;
-    private readonly Mock<ILogger<StrategyCommandHandler>> _loggerMock;
-    private readonly Mock<IStrategyRepository> _strategyRepositoryMock;
+    private readonly Mock<IMediator> _mockMediator;
+    private readonly Mock<ILogger<StrategyCommandHandler>> _mockLogger;
+    private readonly Mock<IStrategyRepository> _mockStrategyRepository;
     private readonly StrategyCommandHandler _handler;
 
     public StrategyCommandHandlerTests()
     {
-        _mediatorMock = new Mock<IMediator>();
-        _loggerMock = new Mock<ILogger<StrategyCommandHandler>>();
-        _strategyRepositoryMock = new Mock<IStrategyRepository>();
+        _mockMediator = new Mock<IMediator>();
+        _mockLogger = new Mock<ILogger<StrategyCommandHandler>>();
+        _mockStrategyRepository = new Mock<IStrategyRepository>();
 
         _handler = new StrategyCommandHandler(
-            _mediatorMock.Object,
-            _loggerMock.Object,
-            _strategyRepositoryMock.Object);
+            _mockMediator.Object,
+            _mockLogger.Object,
+            _mockStrategyRepository.Object);
     }
 
     [Fact]
@@ -41,13 +41,13 @@ public class StrategyCommandHandlerTests
     public async Task HandleAsync_WithEmptyParameters_LogInformation_WhenNoStrategies()
     {
         // arrange
-        _strategyRepositoryMock.Setup(x => x.GetAllStrategies())
+        _mockStrategyRepository.Setup(x => x.GetAllStrategies())
             .ReturnsAsync([]);
         // Act
         await _handler.HandleAsync("");
 
         // Assert
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Strategy is empty, please create and call later.");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Information, "Strategy is empty, please create and call later.");
     }
 
     [Theory]
@@ -56,7 +56,7 @@ public class StrategyCommandHandlerTests
     public async Task HandleAsync_WithEmptyParameters_ShouldReturnStrategyInformation(Status status, string statusText)
     {
         // arrange
-        _strategyRepositoryMock.Setup(x => x.GetAllStrategies())
+        _mockStrategyRepository.Setup(x => x.GetAllStrategies())
             .ReturnsAsync([new Strategy()
                 {
                     Symbol = "BTCUSDT",
@@ -68,11 +68,11 @@ public class StrategyCommandHandlerTests
         await _handler.HandleAsync("");
 
         // Assert
-        _loggerMock.Verify(
+        _mockLogger.Verify(
             x => x.BeginScope(
                 It.Is<TelegramLoggerScope>(x => x.ParseMode == ParseMode.Html)),
             Times.Once);
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, statusText);
+        _mockLogger.VerifyLoggingOnce(LogLevel.Information, statusText);
     }
 
     [Fact]
@@ -82,7 +82,7 @@ public class StrategyCommandHandlerTests
         await _handler.HandleAsync("invalid xyz");
 
         // Assert
-        _loggerMock.VerifyLoggingOnce(LogLevel.Error, "Unknown command. Use: create, delete, pause, or resume");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Error, "Unknown command. Use: create, delete, pause, or resume");
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class StrategyCommandHandlerTests
         await _handler.HandleAsync($"create {json}");
 
         // Assert
-        _mediatorMock.Verify(
+        _mockMediator.Verify(
             x => x.Send(
                 It.Is<CreateStrategyCommand>(cmd =>
                     cmd.Symbol == "BTCUSDT"),
@@ -135,7 +135,7 @@ public class StrategyCommandHandlerTests
     {
         // Arrange
         const string strategyId = "test-id";
-        _mediatorMock
+        _mockMediator
             .Setup(x => x.Send(It.IsAny<DeleteStrategyCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -143,7 +143,7 @@ public class StrategyCommandHandlerTests
         await _handler.HandleAsync($"delete {strategyId}");
 
         // Assert
-        _mediatorMock.Verify(
+        _mockMediator.Verify(
             x => x.Send(
                 It.Is<DeleteStrategyCommand>(cmd => cmd.Id == strategyId),
                 It.IsAny<CancellationToken>()),
@@ -163,7 +163,7 @@ public class StrategyCommandHandlerTests
     {
         // Arrange
         const string strategyId = "test-id";
-        _mediatorMock
+        _mockMediator
             .Setup(x => x.Send(It.IsAny<DeleteStrategyCommand>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(false);
 
@@ -178,7 +178,7 @@ public class StrategyCommandHandlerTests
     {
         // Arrange
         const string strategyId = "test-id";
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.GetByIdAsync(strategyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new Strategy()
             {
@@ -187,7 +187,7 @@ public class StrategyCommandHandlerTests
                 AccountType = AccountType.Spot,
             });
 
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.UpdateAsync(strategyId, It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -195,7 +195,7 @@ public class StrategyCommandHandlerTests
         await _handler.HandleAsync($"pause {strategyId}");
 
         // Assert
-        _strategyRepositoryMock.Verify(
+        _mockStrategyRepository.Verify(
             x => x.UpdateAsync(
                 strategyId,
                 It.Is<Strategy>(x => x.Status == Status.Paused),
@@ -210,10 +210,10 @@ public class StrategyCommandHandlerTests
         const string strategyId = "test-id";
         var strategy = new Strategy { Id = strategyId, Symbol = "BTCUSDT", AccountType = AccountType.Spot, };
 
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.GetByIdAsync(strategyId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(strategy);
-        _strategyRepositoryMock
+        _mockStrategyRepository
             .Setup(x => x.UpdateAsync(strategyId, It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
 
@@ -221,11 +221,11 @@ public class StrategyCommandHandlerTests
         await _handler.HandleAsync($"resume {strategyId}");
 
         // Assert
-        _strategyRepositoryMock.Verify(
+        _mockStrategyRepository.Verify(
             x => x.GetByIdAsync(strategyId, It.IsAny<CancellationToken>()),
             Times.Once);
 
-        _strategyRepositoryMock.Verify(
+        _mockStrategyRepository.Verify(
             x => x.UpdateAsync(
                 strategyId,
                 It.Is<Strategy>(x => x.Status == Status.Running),

@@ -2,242 +2,137 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.API.HostServices;
 using Trading.Application.Services.Alerts;
-using Trading.Application.Services.Common;
-using Trading.Common.Enums;
-using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
 
-namespace Trading.API.Tests.HostServices;
-
-public class AlertHostServiceTests : IDisposable
+public class AlertHostServiceTests
 {
     private readonly Mock<ILogger<AlertHostService>> _loggerMock;
-    private readonly Mock<IKlineStreamManager> _klineStreamManagerMock;
-    private readonly Mock<IAlertRepository> _alertRepositoryMock;
-    private readonly Mock<IStrategyRepository> _strategyRepositoryMock;
-    private readonly CancellationTokenSource _cts;
-    private readonly TestAlertHostService _service;
+    private readonly Mock<IAlertRepository> _alertRepoMock;
+    private readonly Mock<IAlertTaskManager> _taskManagerMock;
+    private readonly TestAlertHostService _hostService;
 
     public AlertHostServiceTests()
     {
         _loggerMock = new Mock<ILogger<AlertHostService>>();
-        _klineStreamManagerMock = new Mock<IKlineStreamManager>();
-        _alertRepositoryMock = new Mock<IAlertRepository>();
-        _strategyRepositoryMock = new Mock<IStrategyRepository>();
-        var backgroundTaskManagerMock = new Mock<IBackgroundTaskManager>();
-        _cts = new CancellationTokenSource();
+        _alertRepoMock = new Mock<IAlertRepository>();
+        _taskManagerMock = new Mock<IAlertTaskManager>();
 
-        var notificationLoggerMock = new Mock<ILogger<AlertNotificationService>>();
-        var jsEvaluatorLoggerMock = new Mock<ILogger<JavaScriptEvaluator>>();
-        var jsEvaluator = new JavaScriptEvaluator(jsEvaluatorLoggerMock.Object);
-
-        var alertNotificationService = new AlertNotificationService(
-            notificationLoggerMock.Object,
-            _alertRepositoryMock.Object,
-            jsEvaluator,
-            backgroundTaskManagerMock.Object);
-
-        _service = new TestAlertHostService(
+        _hostService = new TestAlertHostService(
             _loggerMock.Object,
-            _klineStreamManagerMock.Object,
-            alertNotificationService,
-            _alertRepositoryMock.Object,
-            _strategyRepositoryMock.Object);
-
-        SetupDefaults();
+            _alertRepoMock.Object,
+            _taskManagerMock.Object
+        );
     }
 
+    [Fact]
+    public async Task ExecuteAsync_ShouldInitializeAlertsOnFirstRun()
+    {
+        // Arrange
+        var alerts = new List<Alert> { new Alert(), new Alert() };
+        _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
+                      .ReturnsAsync(alerts);
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        _alertRepoMock.Verify(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _taskManagerMock.Verify(m => m.StartAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()),
+                                Times.Exactly(alerts.Count));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldNotReinitializeAfterFirstRun()
+    {
+        // Arrange
+        var alerts = new[] { new Alert() };
+        _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
+                      .ReturnsAsync(alerts);
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(300);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        _alertRepoMock.Verify(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldLogError_WhenRepositoryThrows()
+    {
+        // Arrange
+        _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
+                      .ThrowsAsync(new InvalidDataException("Repo error"));
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        _loggerMock.VerifyLog(LogLevel.Error, "Error initializing alertHost service", Times.AtLeastOnce());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldLogError_WhenTaskManagerThrows()
+    {
+        // Arrange
+        var alerts = new[] { new Alert() };
+        _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
+                      .ReturnsAsync(alerts);
+
+        _taskManagerMock.Setup(m => m.StartAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(new InvalidDataException("Task error"));
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        _loggerMock.VerifyLog(LogLevel.Error, "Error initializing alertHost service", Times.AtLeastOnce());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldCallSimulateDelay()
+    {
+        // Arrange
+        var alerts = new[] { new Alert() };
+        _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
+                      .ReturnsAsync(alerts);
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        Assert.True(_hostService.DelayCalled);
+    }
+
+    // 子类: 重写延迟方法以避免真实等待
     private sealed class TestAlertHostService : AlertHostService
     {
-        private int _delayCallCount;
+        public bool DelayCalled { get; private set; }
 
-        public TestAlertHostService(
-            ILogger<AlertHostService> logger,
-            IKlineStreamManager klineStreamManager,
-            AlertNotificationService alertNotificationService,
-            IAlertRepository alertRepository,
-            IStrategyRepository strategyRepository)
-            : base(logger, klineStreamManager, alertNotificationService, strategyRepository, alertRepository)
-        {
-        }
+        public TestAlertHostService(ILogger<AlertHostService> logger,
+                                    IAlertRepository repo,
+                                    IAlertTaskManager taskManager)
+            : base(logger, repo, taskManager) { }
 
         public override Task SimulateDelay(TimeSpan delay, CancellationToken cancellationToken)
         {
-            _delayCallCount++;
-            if (_delayCallCount >= 2)
-            {
-                throw new OperationCanceledException();
-            }
+            DelayCalled = true;
             return Task.CompletedTask;
         }
-    }
-
-    private void SetupDefaults()
-    {
-        _klineStreamManagerMock
-            .Setup(x => x.NeedsReconnection())
-            .Returns(false);
-
-        _klineStreamManagerMock
-            .Setup(x => x.SubscribeSymbols(
-                It.IsAny<HashSet<string>>(),
-                It.IsAny<HashSet<string>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-
-        _alertRepositoryMock
-            .Setup(x => x.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Alert>());
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenNoActiveAlerts_ShouldNotSubscribe()
-    {
-        // Arrange
-        _alertRepositoryMock
-            .Setup(x => x.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Alert>());
-
-        // Act
-        try
-        {
-            await _service.StartAsync(_cts.Token);
-        }
-        catch (Exception)
-        {
-            // ignored
-        }
-
-        // Assert
-        _klineStreamManagerMock.Verify(
-            x => x.SubscribeSymbols(
-                It.IsAny<HashSet<string>>(),
-                It.IsAny<HashSet<string>>(),
-                It.IsAny<CancellationToken>()),
-            Times.Never);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WithActiveAlerts_ShouldSubscribe()
-    {
-        // Arrange
-        var alerts = new List<Alert>
-        {
-            new() { Symbol = "BTCUSDT", Interval = "5m" },
-            new() { Symbol = "ETHUSDT", Interval = "15m" }
-        };
-
-        var strategy = new Strategy { Id = "123", Symbol = "DOGEUSDT", Interval = "4h", StrategyType = StrategyType.CloseBuy };
-
-        _strategyRepositoryMock
-            .Setup(x => x.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([strategy]);
-
-        _alertRepositoryMock
-            .Setup(x => x.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(alerts);
-
-        // Act
-        try
-        {
-            await _service.StartAsync(_cts.Token);
-        }
-        catch (Exception)
-        {
-            // ignored
-        }
-
-        // Assert
-        _klineStreamManagerMock.Verify(
-            x => x.SubscribeSymbols(
-                It.Is<HashSet<string>>(s => s.SetEquals(new[] { "BTCUSDT", "ETHUSDT", "DOGEUSDT" })),
-                It.Is<HashSet<string>>(i => i.SetEquals(new[] { "5m", "15m", "4h" })),
-                It.IsAny<CancellationToken>()),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenNeedsReconnection_ShouldResubscribe()
-    {
-        // Arrange
-        var alerts = new List<Alert>
-        {
-            new() { Symbol = "BTCUSDT", Interval = "5m" }
-        };
-        var strategy = new Strategy { Id = "123", Symbol = "BTCUSDT", Interval = "5m", StrategyType = StrategyType.CloseBuy };
-
-        _alertRepositoryMock
-            .Setup(x => x.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(alerts);
-
-        _strategyRepositoryMock
-            .Setup(x => x.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync([strategy]);
-
-        _klineStreamManagerMock
-            .Setup(x => x.NeedsReconnection())
-            .Returns(true);
-
-        // Act
-        try
-        {
-            await _service.StartAsync(_cts.Token);
-        }
-        catch (Exception)
-        {
-            // ignored
-        }
-
-        // Assert
-        _klineStreamManagerMock.Verify(
-            x => x.SubscribeSymbols(
-                It.IsAny<HashSet<string>>(),
-                It.IsAny<HashSet<string>>(),
-                It.IsAny<CancellationToken>()),
-            Times.AtLeast(2));
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenSubscriptionFails_ShouldLogError()
-    {
-        // Arrange
-        var expectedException = new InvalidOperationException("Test exception");
-
-        _alertRepositoryMock
-            .Setup(x => x.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(expectedException);
-
-        _klineStreamManagerMock
-            .Setup(x => x.SubscribeSymbols(
-                It.IsAny<HashSet<string>>(),
-                It.IsAny<HashSet<string>>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(false);
-
-        // Act
-        try
-        {
-            await _service.StartAsync(_cts.Token);
-        }
-        catch (Exception)
-        {
-            // ignored
-        }
-
-        // Assert
-        _loggerMock.Verify(
-            x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Initial subscription failed. Retrying in 1 minute...")),
-                expectedException,
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Exactly(2));
-    }
-
-    public void Dispose()
-    {
-        _cts.Dispose();
     }
 }

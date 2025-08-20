@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Common;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
@@ -9,44 +9,46 @@ using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
 
+namespace Trading.Application.Tests.Services.Trading;
+
 public class StrategyTaskManagerTests
 {
-    private readonly Mock<ILogger<StrategyTaskManager>> _loggerMock;
-    private readonly Mock<IAccountProcessorFactory> _accountProcessorFactoryMock;
-    private readonly Mock<IExecutorFactory> _executorFactoryMock;
-    private readonly Mock<IBackgroundTaskManager> _backgroundTaskManagerMock;
-    private readonly Mock<IStrategyRepository> _strategyRepositoryMock;
-    private readonly Mock<IAccountProcessor> _accountProcessorMock;
-    private readonly Mock<BaseExecutor> _executorMock;
+    private readonly Mock<ILogger<StrategyTaskManager>> _mockLogger;
+    private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
+    private readonly Mock<IExecutorFactory> _mockExecutorFactory;
+    private readonly Mock<ITaskManager> _mockBaseTaskManager;
+    private readonly Mock<IStrategyRepository> _mockStrategyRepository;
+    private readonly Mock<IAccountProcessor> _mockAccountProcessor;
+    private readonly Mock<BaseExecutor> _mockExecutor;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
-    private readonly Mock<IStrategyState> _strategyStateMock;
+    private readonly Mock<GlobalState> _mockGlobalState;
     private readonly StrategyTaskManager _strategyTaskManager;
     private readonly Strategy _strategy;
 
     public StrategyTaskManagerTests()
     {
-        _loggerMock = new Mock<ILogger<StrategyTaskManager>>();
-        _accountProcessorFactoryMock = new Mock<IAccountProcessorFactory>();
-        _executorFactoryMock = new Mock<IExecutorFactory>();
-        _backgroundTaskManagerMock = new Mock<IBackgroundTaskManager>();
-        _strategyRepositoryMock = new Mock<IStrategyRepository>();
-        _accountProcessorMock = new Mock<IAccountProcessor>();
+        _mockLogger = new Mock<ILogger<StrategyTaskManager>>();
+        _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
+        _mockExecutorFactory = new Mock<IExecutorFactory>();
+        _mockBaseTaskManager = new Mock<ITaskManager>();
+        _mockStrategyRepository = new Mock<IStrategyRepository>();
+        _mockAccountProcessor = new Mock<IAccountProcessor>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
-        _strategyStateMock = new Mock<IStrategyState>();
+        _mockGlobalState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
 
         _strategyTaskManager = new StrategyTaskManager(
-            _loggerMock.Object,
-            _backgroundTaskManagerMock.Object,
-            _strategyStateMock.Object,
-            _accountProcessorFactoryMock.Object,
-            _executorFactoryMock.Object);
+            _mockLogger.Object,
+            _mockBaseTaskManager.Object,
+            _mockGlobalState.Object,
+            _mockAccountProcessorFactory.Object,
+            _mockExecutorFactory.Object);
 
-        _executorMock = new Mock<BaseExecutor>(
-            _loggerMock.Object,
-            _strategyRepositoryMock.Object,
+        _mockExecutor = new Mock<BaseExecutor>(
+            _mockLogger.Object,
+            _mockStrategyRepository.Object,
             _mockJavaScriptEvaluator.Object,
-            _accountProcessorFactoryMock.Object,
-            _strategyStateMock.Object);
+            _mockAccountProcessorFactory.Object,
+            _mockGlobalState.Object);
 
         _strategy = new Strategy
         {
@@ -56,31 +58,31 @@ public class StrategyTaskManagerTests
             StrategyType = StrategyType.BottomBuy
         };
 
-        _accountProcessorFactoryMock.Setup(f => f.GetAccountProcessor(_strategy.AccountType))
-            .Returns(_accountProcessorMock.Object);
+        _mockAccountProcessorFactory.Setup(f => f.GetAccountProcessor(_strategy.AccountType))
+            .Returns(_mockAccountProcessor.Object);
 
-        _executorFactoryMock.Setup(f => f.GetExecutor(_strategy.StrategyType))
-            .Returns(_executorMock.Object);
+        _mockExecutorFactory.Setup(f => f.GetExecutor(_strategy.StrategyType))
+            .Returns(_mockExecutor.Object);
 
-        _executorMock.Setup(e => e.ExecuteLoopAsync(_accountProcessorMock.Object, _strategy.Id, It.IsAny<CancellationToken>()))
+        _mockExecutor.Setup(e => e.ExecuteLoopAsync(_mockAccountProcessor.Object, _strategy.Id, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _executorMock.Setup(e => e.CancelExistingOrder(_accountProcessorMock.Object, _strategy, It.IsAny<CancellationToken>()))
+        _mockExecutor.Setup(e => e.CancelExistingOrder(_mockAccountProcessor.Object, _strategy, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
     }
 
     [Fact]
-    public async Task HandleCreatedAsync_ShouldAddAndStartTask_WhenNotExists()
+    public async Task StartAsync_ShouldAddAndStartTask_WhenNotExists()
     {
         // Arrange
-        _strategyStateMock.Setup(s => s.TryAdd(_strategy.Id, _strategy)).Returns(true);
+        _mockGlobalState.Setup(s => s.AddOrUpdateStrategy(_strategy.Id, _strategy)).Returns(true);
 
         // Act
-        await _strategyTaskManager.HandleCreatedAsync(_strategy);
+        await _strategyTaskManager.StartAsync(_strategy);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StartAsync(
+        _mockBaseTaskManager.Verify(m => m.StartAsync(
             TaskCategory.Strategy,
             _strategy.Id,
             It.IsAny<Func<CancellationToken, Task>>(),
@@ -88,16 +90,16 @@ public class StrategyTaskManagerTests
     }
 
     [Fact]
-    public async Task HandleCreatedAsync_ShouldNotStartTask_WhenAlreadyExists()
+    public async Task StartAsync_ShouldNotStartTask_WhenAlreadyExists()
     {
         // Arrange
-        _strategyStateMock.Setup(s => s.TryAdd(_strategy.Id, _strategy)).Returns(false);
+        _mockGlobalState.Setup(s => s.AddOrUpdateStrategy(_strategy.Id, _strategy)).Returns(false);
 
         // Act
-        await _strategyTaskManager.HandleCreatedAsync(_strategy);
+        await _strategyTaskManager.StartAsync(_strategy);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StartAsync(
+        _mockBaseTaskManager.Verify(m => m.StartAsync(
             TaskCategory.Strategy,
             It.IsAny<string>(),
             It.IsAny<Func<CancellationToken, Task>>(),
@@ -105,16 +107,16 @@ public class StrategyTaskManagerTests
     }
 
     [Fact]
-    public async Task HandleResumedAsync_ShouldAddAndStartTask_WhenNotExists()
+    public async Task ResumeAsync_ShouldAddAndStartTask_WhenNotExists()
     {
         // Arrange
-        _strategyStateMock.Setup(s => s.TryAdd(_strategy.Id, _strategy)).Returns(true);
+        _mockGlobalState.Setup(s => s.AddOrUpdateStrategy(_strategy.Id, _strategy)).Returns(true);
 
         // Act
-        await _strategyTaskManager.HandleResumedAsync(_strategy);
+        await _strategyTaskManager.ResumeAsync(_strategy);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StartAsync(
+        _mockBaseTaskManager.Verify(m => m.StartAsync(
             TaskCategory.Strategy,
             _strategy.Id,
             It.IsAny<Func<CancellationToken, Task>>(),
@@ -122,16 +124,16 @@ public class StrategyTaskManagerTests
     }
 
     [Fact]
-    public async Task HandleResumedAsync_ShouldNotStartTask_WhenAlreadyExists()
+    public async Task ResumeAsync_ShouldNotStartTask_WhenAlreadyExists()
     {
         // Arrange
-        _strategyStateMock.Setup(s => s.TryAdd(_strategy.Id, _strategy)).Returns(false);
+        _mockGlobalState.Setup(s => s.AddOrUpdateStrategy(_strategy.Id, _strategy)).Returns(false);
 
         // Act
-        await _strategyTaskManager.HandleResumedAsync(_strategy);
+        await _strategyTaskManager.ResumeAsync(_strategy);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StartAsync(
+        _mockBaseTaskManager.Verify(m => m.StartAsync(
             TaskCategory.Strategy,
             It.IsAny<string>(),
             It.IsAny<Func<CancellationToken, Task>>(),
@@ -139,21 +141,21 @@ public class StrategyTaskManagerTests
     }
 
     [Fact]
-    public async Task HandleDeletedAsync_ShouldRemoveAndStopTask_WhenExists_NoOrderId()
+    public async Task StopAsync_ShouldRemoveAndStopTask_WhenExists_NoOrderId()
     {
         // Arrange
-        _strategyStateMock.Setup(s => s.TryRemove(_strategy.Id, out It.Ref<Strategy?>.IsAny)).Returns(true);
+        _mockGlobalState.Setup(s => s.TryRemoveStrategy(_strategy.Id, out It.Ref<Strategy?>.IsAny)).Returns(true);
 
         // Act
-        await _strategyTaskManager.HandleDeletedAsync(_strategy);
+        await _strategyTaskManager.StopAsync(_strategy);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Once);
-        _executorMock.Verify(m => m.CancelExistingOrder(It.IsAny<IAccountProcessor>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockBaseTaskManager.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Once);
+        _mockExecutor.Verify(m => m.CancelExistingOrder(It.IsAny<IAccountProcessor>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task HandleDeletedAsync_ShouldRemoveAndStopTask_WhenExists_WithOrderId()
+    public async Task StopAsync_WhenOrderIdExists_ShouldCancelOrderAndStopTask()
     {
         // Arrange
         var strategyWithOrder = new Strategy
@@ -165,60 +167,60 @@ public class StrategyTaskManagerTests
             OrderId = 123
         };
 
-        _strategyStateMock.Setup(s => s.TryRemove(strategyWithOrder.Id, out It.Ref<Strategy?>.IsAny)).Returns(true);
+        _mockGlobalState.Setup(s => s.TryRemoveStrategy(strategyWithOrder.Id, out It.Ref<Strategy?>.IsAny)).Returns(true);
 
-        _accountProcessorFactoryMock.Setup(f => f.GetAccountProcessor(strategyWithOrder.AccountType))
-            .Returns(_accountProcessorMock.Object);
+        _mockAccountProcessorFactory.Setup(f => f.GetAccountProcessor(strategyWithOrder.AccountType))
+            .Returns(_mockAccountProcessor.Object);
 
-        _executorFactoryMock.Setup(f => f.GetExecutor(strategyWithOrder.StrategyType))
-            .Returns(_executorMock.Object);
+        _mockExecutorFactory.Setup(f => f.GetExecutor(strategyWithOrder.StrategyType))
+            .Returns(_mockExecutor.Object);
 
         // Act
-        await _strategyTaskManager.HandleDeletedAsync(strategyWithOrder);
+        await _strategyTaskManager.StopAsync(strategyWithOrder);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StopAsync(TaskCategory.Strategy, strategyWithOrder.Id), Times.Once);
-        _executorMock.Verify(m => m.CancelExistingOrder(_accountProcessorMock.Object, strategyWithOrder, It.IsAny<CancellationToken>()), Times.Once);
+        _mockBaseTaskManager.Verify(m => m.StopAsync(TaskCategory.Strategy, strategyWithOrder.Id), Times.Once);
+        _mockExecutor.Verify(m => m.CancelExistingOrder(_mockAccountProcessor.Object, strategyWithOrder, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task HandleDeletedAsync_ShouldNotStopTask_WhenNotExists()
+    public async Task StopAsync_WhenOrderIdNotExists_ShouldStopTaskWithoutCancellingOrder()
     {
         // Arrange
-        _strategyStateMock.Setup(s => s.TryRemove(_strategy.Id, out It.Ref<Strategy?>.IsAny)).Returns(false);
+        _mockGlobalState.Setup(s => s.TryRemoveStrategy(_strategy.Id, out It.Ref<Strategy?>.IsAny)).Returns(false);
 
         // Act
-        await _strategyTaskManager.HandleDeletedAsync(_strategy);
+        await _strategyTaskManager.StopAsync(_strategy);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Never);
-        _executorMock.Verify(m => m.CancelExistingOrder(It.IsAny<IAccountProcessor>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
+        _mockBaseTaskManager.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Never);
+        _mockExecutor.Verify(m => m.CancelExistingOrder(It.IsAny<IAccountProcessor>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
-    public async Task HandlePausedAsync_ShouldRemoveAndStopTask_WhenExists()
+    public async Task PauseAsync_ShouldRemoveAndStopTask_WhenExists()
     {
         // Arrange
-        _strategyStateMock.Setup(s => s.TryRemove(_strategy.Id, out It.Ref<Strategy?>.IsAny)).Returns(true);
+        _mockGlobalState.Setup(s => s.TryRemoveStrategy(_strategy.Id, out It.Ref<Strategy?>.IsAny)).Returns(true);
 
         // Act
-        await _strategyTaskManager.HandlePausedAsync(_strategy);
+        await _strategyTaskManager.PauseAsync(_strategy);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Once);
+        _mockBaseTaskManager.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Once);
     }
 
     [Fact]
-    public async Task HandlePausedAsync_ShouldNotStopTask_WhenNotExists()
+    public async Task PauseAsync_ShouldNotStopTask_WhenNotExists()
     {
         // Arrange
-        _strategyStateMock.Setup(s => s.TryRemove(_strategy.Id, out It.Ref<Strategy?>.IsAny)).Returns(false);
+        _mockGlobalState.Setup(s => s.TryRemoveStrategy(_strategy.Id, out It.Ref<Strategy?>.IsAny)).Returns(false);
 
         // Act
-        await _strategyTaskManager.HandlePausedAsync(_strategy);
+        await _strategyTaskManager.PauseAsync(_strategy);
 
         // Assert
-        _backgroundTaskManagerMock.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Never);
+        _mockBaseTaskManager.Verify(m => m.StopAsync(TaskCategory.Strategy, _strategy.Id), Times.Never);
     }
 
 }

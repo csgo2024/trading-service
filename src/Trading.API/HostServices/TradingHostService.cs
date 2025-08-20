@@ -7,8 +7,8 @@ public class TradingHostService : BackgroundService
 {
     private readonly ILogger<TradingHostService> _logger;
     private readonly IStrategyRepository _strategyRepository;
-
     private readonly IStrategyTaskManager _strategyTaskManager;
+    private bool _initialized;
 
     public TradingHostService(ILogger<TradingHostService> logger,
                               IStrategyRepository strategyRepository,
@@ -25,17 +25,21 @@ public class TradingHostService : BackgroundService
         {
             try
             {
-                var strategies = await _strategyRepository.GetActiveStrategyAsync(stoppingToken);
-                foreach (var strategy in strategies)
+                if (!_initialized)
                 {
-                    await _strategyTaskManager.HandleCreatedAsync(strategy, stoppingToken);
+                    var strategies = await _strategyRepository.GetActiveStrategyAsync(stoppingToken);
+                    foreach (var strategy in strategies)
+                    {
+                        await _strategyTaskManager.StartAsync(strategy, stoppingToken);
+                    }
+                    _initialized = true;
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error initializing trading service");
             }
-            await SimulateDelay(TimeSpan.FromMinutes(10), stoppingToken);
+            await SimulateDelay(TimeSpan.FromMinutes(1), stoppingToken);
         }
     }
     public virtual Task SimulateDelay(TimeSpan delay, CancellationToken cancellationToken)

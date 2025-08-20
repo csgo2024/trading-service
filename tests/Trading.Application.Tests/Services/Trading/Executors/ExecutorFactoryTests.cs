@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Common;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
@@ -38,10 +38,9 @@ public class ExecutorFactoryTests
         services.AddScoped<DCABuyExecutor>();
         services.AddScoped<TopSellExecutor>();
         services.AddScoped<JavaScriptEvaluator>();
-        services.AddSingleton<IBackgroundTaskManager, BackgroundTaskManager>();
-        services.AddSingleton<IBackgroundTaskState, BackgroundTaskState>();
+        services.AddSingleton<ITaskManager, BaseTaskManager>();
         services.AddSingleton<IExecutorFactory, ExecutorFactory>();
-        services.AddSingleton<IStrategyState, StrategyState>();
+        services.AddSingleton<GlobalState>();
         services.AddSingleton<IStrategyTaskManager, StrategyTaskManager>();
 
         _serviceProvider = services.BuildServiceProvider();

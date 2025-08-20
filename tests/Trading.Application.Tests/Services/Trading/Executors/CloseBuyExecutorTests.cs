@@ -2,8 +2,8 @@ using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Common;
-using Trading.Application.Services.Trading;
+using Trading.Application.IntegrationEvents.Events;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.JavaScript;
@@ -21,7 +21,7 @@ public class CloseBuyExecutorTests
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
     private readonly Mock<IAccountProcessor> _mockAccountProcessor;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
-    private readonly Mock<IStrategyState> _mockStrategyState;
+    private readonly Mock<GlobalState> _mockState;
     private readonly CloseBuyExecutor _executor;
     private readonly CancellationToken _ct;
 
@@ -32,13 +32,13 @@ public class CloseBuyExecutorTests
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
         _mockAccountProcessor = new Mock<IAccountProcessor>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
-        _mockStrategyState = new Mock<IStrategyState>();
+        _mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
         _executor = new CloseBuyExecutor(
             _mockLogger.Object,
             _mockAccountProcessorFactory.Object,
             _mockStrategyRepository.Object,
             _mockJavaScriptEvaluator.Object,
-            _mockStrategyState.Object
+            _mockState.Object
         );
         _ct = CancellationToken.None;
     }

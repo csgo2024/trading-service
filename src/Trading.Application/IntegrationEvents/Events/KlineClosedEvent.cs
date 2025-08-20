@@ -2,7 +2,7 @@ using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 using MediatR;
 
-namespace Trading.Application.Services.Common;
+namespace Trading.Application.IntegrationEvents.Events;
 
 public class KlineClosedEvent : INotification
 {

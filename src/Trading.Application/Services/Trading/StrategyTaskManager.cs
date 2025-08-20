@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using Trading.Application.Services.Common;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.Enums;
@@ -9,52 +9,52 @@ namespace Trading.Application.Services.Trading;
 
 public interface IStrategyTaskManager
 {
-    Task HandlePausedAsync(Strategy strategy, CancellationToken cancellationToken = default);
-    Task HandleCreatedAsync(Strategy strategy, CancellationToken cancellationToken = default);
-    Task HandleDeletedAsync(Strategy strategy, CancellationToken cancellationToken = default);
-    Task HandleResumedAsync(Strategy strategy, CancellationToken cancellationToken = default);
+    Task PauseAsync(Strategy strategy, CancellationToken cancellationToken = default);
+    Task StartAsync(Strategy strategy, CancellationToken cancellationToken = default);
+    Task StopAsync(Strategy strategy, CancellationToken cancellationToken = default);
+    Task ResumeAsync(Strategy strategy, CancellationToken cancellationToken = default);
 
 }
 
 public class StrategyTaskManager : IStrategyTaskManager
 {
-    protected readonly ILogger<StrategyTaskManager> _logger;
-    protected readonly IBackgroundTaskManager _backgroundTaskManager;
-    protected readonly IStrategyState _strategyState;
-    protected readonly IAccountProcessorFactory _accountProcessorFactory;
-    protected readonly IExecutorFactory _executorFactory;
+    private readonly ILogger<StrategyTaskManager> _logger;
+    private readonly ITaskManager _baseTaskManager;
+    private readonly GlobalState _globalState;
+    private readonly IAccountProcessorFactory _accountProcessorFactory;
+    private readonly IExecutorFactory _executorFactory;
 
     public StrategyTaskManager(
         ILogger<StrategyTaskManager> logger,
-        IBackgroundTaskManager backgroundTaskManager,
-        IStrategyState strategyState,
+        ITaskManager baseTaskManager,
+        GlobalState globalState,
         IAccountProcessorFactory accountProcessorFactory,
         IExecutorFactory executorFactory)
     {
         _logger = logger;
-        _backgroundTaskManager = backgroundTaskManager;
-        _strategyState = strategyState;
+        _baseTaskManager = baseTaskManager;
+        _globalState = globalState;
         _accountProcessorFactory = accountProcessorFactory;
         _executorFactory = executorFactory;
     }
 
-    public virtual async Task HandleCreatedAsync(Strategy strategy, CancellationToken cancellationToken = default)
+    public virtual async Task StartAsync(Strategy strategy, CancellationToken cancellationToken = default)
     {
-        if (_strategyState.TryAdd(strategy.Id, strategy))
+        if (_globalState.AddOrUpdateStrategy(strategy.Id, strategy))
         {
             var executor = _executorFactory.GetExecutor(strategy.StrategyType);
             var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType)!;
 
-            await _backgroundTaskManager.StartAsync(TaskCategory.Strategy,
+            await _baseTaskManager.StartAsync(TaskCategory.Strategy,
                                           strategy.Id,
                                           async (ct) => await executor!.ExecuteLoopAsync(accountProcessor, strategy.Id, ct),
                                           cancellationToken);
         }
     }
 
-    public async Task HandleDeletedAsync(Strategy strategy, CancellationToken cancellationToken = default)
+    public async Task StopAsync(Strategy strategy, CancellationToken cancellationToken = default)
     {
-        if (_strategyState.TryRemove(strategy.Id, out var _))
+        if (_globalState.TryRemoveStrategy(strategy.Id, out var _))
         {
             if (strategy.OrderId.HasValue)
             {
@@ -62,26 +62,26 @@ public class StrategyTaskManager : IStrategyTaskManager
                 var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType);
                 await executor!.CancelExistingOrder(accountProcessor!, strategy, cancellationToken);
             }
-            await _backgroundTaskManager.StopAsync(TaskCategory.Strategy, strategy.Id);
+            await _baseTaskManager.StopAsync(TaskCategory.Strategy, strategy.Id);
         }
     }
 
-    public virtual async Task HandlePausedAsync(Strategy strategy, CancellationToken cancellationToken = default)
+    public virtual async Task PauseAsync(Strategy strategy, CancellationToken cancellationToken = default)
     {
-        if (_strategyState.TryRemove(strategy.Id, out var _))
+        if (_globalState.TryRemoveStrategy(strategy.Id, out var _))
         {
-            await _backgroundTaskManager.StopAsync(TaskCategory.Strategy, strategy.Id);
+            await _baseTaskManager.StopAsync(TaskCategory.Strategy, strategy.Id);
         }
     }
 
-    public async Task HandleResumedAsync(Strategy strategy, CancellationToken cancellationToken = default)
+    public async Task ResumeAsync(Strategy strategy, CancellationToken cancellationToken = default)
     {
-        if (_strategyState.TryAdd(strategy.Id, strategy))
+        if (_globalState.AddOrUpdateStrategy(strategy.Id, strategy))
         {
             var executor = _executorFactory.GetExecutor(strategy.StrategyType);
             var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType)!;
 
-            await _backgroundTaskManager.StartAsync(TaskCategory.Strategy,
+            await _baseTaskManager.StartAsync(TaskCategory.Strategy,
                                           strategy.Id,
                                           async (ct) => await executor!.ExecuteLoopAsync(accountProcessor, strategy.Id, ct),
                                           cancellationToken);

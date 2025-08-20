@@ -1,23 +1,25 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Common;
+using Trading.Application.Services.Shared;
 using Trading.Common.Enums;
 
-namespace Trading.Application.Tests.Services.Common;
+namespace Trading.Application.Tests.Services.Shared;
 
-public class BackgroundTaskManagerTests
+public class BaseTaskManagerTests
 {
-    private readonly Mock<ILogger<BackgroundTaskManager>> _loggerMock;
-    public BackgroundTaskManagerTests()
+    private readonly Mock<ILogger<BaseTaskManager>> _mockLogger;
+    private readonly GlobalState _globalState;
+    public BaseTaskManagerTests()
     {
-        _loggerMock = new Mock<ILogger<BackgroundTaskManager>>();
+        _mockLogger = new Mock<ILogger<BaseTaskManager>>();
+        _globalState = new GlobalState(Mock.Of<ILogger<GlobalState>>());
     }
 
     [Fact]
     public async Task StartAsync_ShouldAddTaskToMonitoring()
     {
         // Arrange
-        var taskManager = new BackgroundTaskManager(_loggerMock.Object, new BackgroundTaskState());
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
         var taskId = Guid.NewGuid().ToString();
         var executed = false;
 
@@ -46,7 +48,7 @@ public class BackgroundTaskManagerTests
     public async Task StartAsync_WhenTaskAlreadyExists_ShouldNotStartNewTask()
     {
         // Arrange
-        var taskManager = new BackgroundTaskManager(_loggerMock.Object, new BackgroundTaskState());
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
         var taskId = Guid.NewGuid().ToString();
         var executionCount = 0;
 
@@ -84,7 +86,7 @@ public class BackgroundTaskManagerTests
     public async Task StopAsync_ShouldRemoveAndCancelTask()
     {
         // Arrange
-        var taskManager = new BackgroundTaskManager(_loggerMock.Object, new BackgroundTaskState());
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
         var taskId = Guid.NewGuid().ToString();
 
         using var cts = new CancellationTokenSource();
@@ -100,7 +102,7 @@ public class BackgroundTaskManagerTests
         // Act
         await taskManager.StopAsync(TaskCategory.Strategy, taskId);
 
-        _loggerMock.VerifyLoggingOnce(LogLevel.Information, $"Task stopped: Category={TaskCategory.Strategy}, TaskId={taskId}");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Information, $"Task stopped: Category={TaskCategory.Strategy}, TaskId={taskId}");
         Assert.Empty(taskManager.GetActiveTaskIds(TaskCategory.Strategy));
         await taskManager.StopAsync();
         await taskManager.DisposeAsync();
@@ -110,7 +112,7 @@ public class BackgroundTaskManagerTests
     public async Task StopAsync_WithCategory_ShouldStopAllTasksInCategory()
     {
         // Arrange
-        var taskManager = new BackgroundTaskManager(_loggerMock.Object, new BackgroundTaskState());
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
         var taskIds = new[] { Guid.NewGuid().ToString(), Guid.NewGuid().ToString() };
         var executingTasks = 0;
 
@@ -150,7 +152,7 @@ public class BackgroundTaskManagerTests
     public async Task GetActiveTaskIds_ShouldReturnCorrectTasksForCategory()
     {
         // Arrange
-        var taskManager = new BackgroundTaskManager(_loggerMock.Object, new BackgroundTaskState());
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
         var strategyTaskId = Guid.NewGuid().ToString();
         var alertTaskId = Guid.NewGuid().ToString();
 
@@ -183,7 +185,7 @@ public class BackgroundTaskManagerTests
     public async Task StopAsync_ShouldStopAllTasks()
     {
         // Arrange
-        var taskManager = new BackgroundTaskManager(_loggerMock.Object, new BackgroundTaskState());
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
         var executingTasks = 0;
         var tasks = new[]
         {

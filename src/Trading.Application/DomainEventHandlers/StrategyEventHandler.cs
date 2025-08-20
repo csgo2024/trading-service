@@ -1,7 +1,8 @@
 using MediatR;
+using Trading.Application.Services.Trading;
 using Trading.Domain.Events;
 
-namespace Trading.Application.Services.Trading;
+namespace Trading.Application.DomainEventHandlers;
 
 public class StrategyEventHandler :
     INotificationHandler<StrategyCreatedEvent>,
@@ -17,15 +18,15 @@ public class StrategyEventHandler :
     }
 
     public async Task Handle(StrategyCreatedEvent notification, CancellationToken cancellationToken)
-        => await _strategyTaskManager.HandleCreatedAsync(notification.Strategy, cancellationToken);
+        => await _strategyTaskManager.StartAsync(notification.Strategy, cancellationToken);
 
     public async Task Handle(StrategyDeletedEvent notification, CancellationToken cancellationToken)
-        => await _strategyTaskManager.HandleDeletedAsync(notification.Strategy, cancellationToken);
+        => await _strategyTaskManager.StopAsync(notification.Strategy, cancellationToken);
 
     public async Task Handle(StrategyPausedEvent notification, CancellationToken cancellationToken)
-        => await _strategyTaskManager.HandlePausedAsync(notification.Strategy, cancellationToken);
+        => await _strategyTaskManager.PauseAsync(notification.Strategy, cancellationToken);
 
     public async Task Handle(StrategyResumedEvent notification, CancellationToken cancellationToken)
-        => await _strategyTaskManager.HandleResumedAsync(notification.Strategy, cancellationToken);
+        => await _strategyTaskManager.ResumeAsync(notification.Strategy, cancellationToken);
 
 }

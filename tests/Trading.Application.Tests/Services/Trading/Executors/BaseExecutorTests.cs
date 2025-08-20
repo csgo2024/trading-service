@@ -4,7 +4,7 @@ using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Objects;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Trading;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.JavaScript;
@@ -20,8 +20,8 @@ public class TestExecutor : BaseExecutor
                         IStrategyRepository strategyRepository,
                         JavaScriptEvaluator javaScriptEvaluator,
                         IAccountProcessorFactory accountProcessorFactory,
-                        IStrategyState strategyState)
-        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyState)
+                        GlobalState globalState)
+        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, globalState)
     {
     }
 
@@ -35,7 +35,7 @@ public class BaseExecutorTests
     private readonly Mock<IStrategyRepository> _mockStrategyRepository;
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
-    private readonly Mock<IStrategyState> _mockStrategyState;
+    private readonly Mock<GlobalState> _mockState;
     private readonly TestExecutor _executor;
     private readonly CancellationToken _ct;
 
@@ -46,12 +46,12 @@ public class BaseExecutorTests
         _mockStrategyRepository = new Mock<IStrategyRepository>();
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
-        _mockStrategyState = new Mock<IStrategyState>();
+        _mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
         _executor = new TestExecutor(_mockLogger.Object,
                                      _mockStrategyRepository.Object,
                                      _mockJavaScriptEvaluator.Object,
                                      _mockAccountProcessorFactory.Object,
-                                     _mockStrategyState.Object);
+                                     _mockState.Object);
         _ct = CancellationToken.None;
     }
     [Fact]
@@ -94,9 +94,10 @@ public class BaseExecutorTests
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromSeconds(1)); // Cancel after 1 second to end the loop
 
-        _mockStrategyState
-            .Setup(x => x.GetStrategyById(strategy.Id))
-            .Returns(strategy);
+        _mockState
+            .Setup(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny))
+            .Callback((string key, out Strategy? a) => { a = strategy; })
+            .Returns(true);
 
         _mockAccountProcessor.SetupSuccessfulGetOrder(OrderStatus.New);
         _mockStrategyRepository.Setup(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
@@ -106,7 +107,7 @@ public class BaseExecutorTests
         await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy.Id, cts.Token);
 
         // Assert
-        _mockStrategyState.Verify(x => x.GetStrategyById(strategy.Id), Times.AtLeastOnce);
+        _mockState.Verify(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny), Times.AtLeastOnce);
         _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
@@ -126,15 +127,16 @@ public class BaseExecutorTests
         using var cts = new CancellationTokenSource();
         cts.CancelAfter(TimeSpan.FromSeconds(1)); // Cancel after 1 second to end the loop
 
-        _mockStrategyState
-            .Setup(x => x.GetStrategyById(strategy.Id))
-            .Returns(() => null);
+        _mockState
+            .Setup(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny))
+            .Callback((string key, out Strategy? a) => { a = null; })
+            .Returns(false);
 
         // Act
         await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy.Id, cts.Token);
 
         // Assert
-        _mockStrategyState.Verify(x => x.GetStrategyById(strategy.Id), Times.AtLeastOnce);
+        _mockState.Verify(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny), Times.AtLeastOnce);
         _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 

@@ -1,5 +1,6 @@
 using Binance.Net.Enums;
 using Microsoft.Extensions.Logging;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Enums;
@@ -17,8 +18,8 @@ public class TopSellExecutor : BaseExecutor
                            IStrategyRepository strategyRepository,
                            JavaScriptEvaluator javaScriptEvaluator,
                            IAccountProcessorFactory accountProcessorFactory,
-                           IStrategyState strategyState)
-        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyState)
+                           GlobalState globalState)
+        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, globalState)
     {
     }
 

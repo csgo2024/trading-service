@@ -7,12 +7,12 @@ namespace Trading.Application.Tests.Telegram.JavaScript;
 public class JavaScriptEvaluatorTests
 {
     private readonly JavaScriptEvaluator _evaluator;
-    private readonly Mock<ILogger<JavaScriptEvaluator>> _loggerMock;
+    private readonly Mock<ILogger<JavaScriptEvaluator>> _mockLogger;
 
     public JavaScriptEvaluatorTests()
     {
-        _loggerMock = new Mock<ILogger<JavaScriptEvaluator>>();
-        _evaluator = new JavaScriptEvaluator(_loggerMock.Object);
+        _mockLogger = new Mock<ILogger<JavaScriptEvaluator>>();
+        _evaluator = new JavaScriptEvaluator(_mockLogger.Object);
     }
 
     [Theory]
@@ -46,7 +46,7 @@ public class JavaScriptEvaluatorTests
 
         // Assert
         Assert.False(result);
-        _loggerMock.VerifyLoggingOnce(LogLevel.Error, "invalid * syntax >");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Error, "invalid * syntax >");
     }
 
     [Theory]
@@ -102,7 +102,7 @@ public class JavaScriptEvaluatorTests
     public void Dispose_ReleasesResources()
     {
         // Arrange
-        var evaluator = new JavaScriptEvaluator(_loggerMock.Object);
+        var evaluator = new JavaScriptEvaluator(_mockLogger.Object);
 
         // Act & Assert (should not throw)
         evaluator.Dispose();

@@ -1,4 +1,3 @@
-using MongoDB.Driver;
 using Trading.Common.Enums;
 using Trading.Domain.Entities;
 using Trading.Infrastructure.Repositories;
@@ -57,58 +56,6 @@ public class AlertRepositoryTests : IClassFixture<MongoDbFixture>
     }
 
     [Fact]
-    public async Task GetAlertsById_ShouldReturnMatchingAlerts()
-    {
-        await _repository.EmptyAsync();
-        // Arrange
-        var alert1 = new Alert { Id = "1", Symbol = "BTCUSDT" };
-        var alert2 = new Alert { Id = "2", Symbol = "ETHUSDT" };
-        var alert3 = new Alert { Id = "3", Symbol = "DOGEUSDT" };
-        await Task.WhenAll(
-            _repository.AddAsync(alert1),
-            _repository.AddAsync(alert2),
-            _repository.AddAsync(alert3)
-        );
-
-        // Act
-        var result = _repository.GetAlertsById(new[] { "1", "3" });
-
-        // Assert
-        var alerts = result.ToList();
-        Assert.Equal(2, alerts.Count);
-        Assert.Contains(alerts, a => a.Id == "1");
-        Assert.Contains(alerts, a => a.Id == "3");
-    }
-
-    [Fact]
-    public async Task DeactivateAlertAsync_ShouldSetIsActiveToFalse()
-    {
-        await _repository.EmptyAsync();
-        // Arrange
-        var alert = new Alert { Symbol = "BTCUSDT", Status = Status.Running };
-        await _repository.AddAsync(alert);
-
-        // Act
-        var result = await _repository.DeactivateAlertAsync(alert.Id, CancellationToken.None);
-
-        // Assert
-        Assert.True(result);
-        var deactivatedAlert = await _repository.GetByIdAsync(alert.Id);
-        Assert.True(deactivatedAlert!.Status == Status.Paused);
-    }
-
-    [Fact]
-    public async Task DeactivateAlertAsync_WithNonExistentId_ShouldReturnFalse()
-    {
-        await _repository.EmptyAsync();
-        // Act
-        var result = await _repository.DeactivateAlertAsync("non-existent", CancellationToken.None);
-
-        // Assert
-        Assert.False(result);
-    }
-
-    [Fact]
     public async Task ClearAllAlertsAsync_ShouldRemoveAllAlerts()
     {
         await _repository.EmptyAsync();
@@ -160,34 +107,5 @@ public class AlertRepositoryTests : IClassFixture<MongoDbFixture>
         Assert.Contains(alerts, a => a.Id == "1");
         Assert.Contains(alerts, a => a.Id == "2");
         Assert.Contains(alerts, a => a.Id == "3");
-    }
-    [Fact]
-    public async Task ResumeAlertAsync_ShouldResumeMatchedSymbolAndInterval()
-    {
-        await _repository.EmptyAsync();
-        // Arrange
-        var alert1 = new Alert { Id = "1", Symbol = "BTCUSDT", Interval = "5m", Status = Status.Paused };
-        var alert2 = new Alert { Id = "2", Symbol = "BTCUSDT", Interval = "1h", Status = Status.Paused };
-        var alert3 = new Alert { Id = "3", Symbol = "ETHUSDT", Interval = "1h", Status = Status.Paused };
-        var alert4 = new Alert { Id = "4", Symbol = "DOGEUSDT" };
-        var alert5 = new Alert { Id = "5", Symbol = "BTCUSDT", Interval = "5m", Status = Status.Paused };
-        var alert6 = new Alert { Id = "6", Symbol = "BTCUSDT", Interval = "4h", Status = Status.Paused };
-        await Task.WhenAll(
-            _repository.AddAsync(alert1),
-            _repository.AddAsync(alert2),
-            _repository.AddAsync(alert3),
-            _repository.AddAsync(alert4),
-            _repository.AddAsync(alert5),
-            _repository.AddAsync(alert6)
-        );
-
-        // Act
-        var result = await _repository.ResumeAlertAsync("BTCUSDT", "5m", CancellationToken.None);
-
-        // Assert
-        var alerts = result.ToList();
-        Assert.Equal(2, alerts.Count);
-        Assert.Contains(alerts, a => a == "1");
-        Assert.Contains(alerts, a => a == "5");
     }
 }

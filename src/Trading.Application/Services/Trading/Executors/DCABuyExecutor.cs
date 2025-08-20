@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Common.Enums;
 using Trading.Common.JavaScript;
@@ -13,8 +14,8 @@ public class DCABuyExecutor : BaseExecutor
                           IStrategyRepository strategyRepository,
                           JavaScriptEvaluator javaScriptEvaluator,
                           IAccountProcessorFactory accountProcessorFactory,
-                          IStrategyState strategyTaskManager)
-        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyTaskManager)
+                          GlobalState globalState)
+        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, globalState)
     {
     }
 
