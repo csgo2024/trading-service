@@ -69,7 +69,7 @@ public class KlineClosedEventHandler2Tests
         var key = $"{alert.Id}-{alert.Symbol}-{alert.Interval}";
         Assert.True(_globalState.TryGetLastKline(key, out var storedKline));
         Assert.Equal(kline, storedKline);
-        _notificationServiceMock.Verify(s => s.SendNotification(alert, It.IsAny<CancellationToken>()), Times.Once);
+        _notificationServiceMock.Verify(s => s.SendNotification(alert, kline, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -88,7 +88,7 @@ public class KlineClosedEventHandler2Tests
         // Assert
         Assert.Equal(Status.Running, alert.Status);
         _alertRepositoryMock.Verify(r => r.UpdateAsync(alert.Id, alert, It.IsAny<CancellationToken>()), Times.Once);
-        _notificationServiceMock.Verify(s => s.SendNotification(It.IsAny<Alert>(), It.IsAny<CancellationToken>()), Times.Never);
+        _notificationServiceMock.Verify(s => s.SendNotification(It.IsAny<Alert>(), kline, It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -106,7 +106,7 @@ public class KlineClosedEventHandler2Tests
         await _handler.Handle(@event, CancellationToken.None);
 
         // Assert
-        _notificationServiceMock.Verify(s => s.SendNotification(
+        _notificationServiceMock.Verify(s => s.ProcessAlertAsync(
             It.IsAny<Alert>(),
             It.IsAny<CancellationToken>()), Times.Never);
 

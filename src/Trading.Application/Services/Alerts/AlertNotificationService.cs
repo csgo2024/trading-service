@@ -11,7 +11,8 @@ namespace Trading.Application.Services.Alerts;
 
 public interface IAlertNotificationService
 {
-    Task SendNotification(Alert alert, CancellationToken cancellationToken);
+    Task ProcessAlertAsync(Alert alert, CancellationToken cancellationToken);
+    Task SendNotification(Alert alert, IBinanceKline kline, CancellationToken cancellationToken);
 }
 
 public class AlertNotificationService : IAlertNotificationService
@@ -32,26 +33,33 @@ public class AlertNotificationService : IAlertNotificationService
         _javaScriptEvaluator = javaScriptEvaluator;
         _globalState = globalState;
     }
-    public async Task SendNotification(Alert alert, CancellationToken cancellationToken)
+    public async Task ProcessAlertAsync(Alert alert, CancellationToken cancellationToken)
     {
         var key = $"{alert.Id}-{alert.Symbol}-{alert.Interval}";
+
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
+                // 确保获取到最新的 alert 状态
+                _globalState.TryGetAlert(alert.Id, out alert!);
+
+                // 计算距离上次通知经过的时间
+                var elapsed = (DateTime.UtcNow - alert.LastNotification).TotalSeconds;
+                if (elapsed < 60)
+                {
+                    // 冷却期内：直接 sleep 剩余冷却时间
+                    var remaining = TimeSpan.FromSeconds(60 - elapsed);
+                    await Task.Delay(remaining, cancellationToken);
+                    continue;
+                }
+
                 if (_globalState.TryGetLastKline(key, out var kline) && kline != null)
                 {
-                    var met = _javaScriptEvaluator.EvaluateExpression(alert.Expression,
-                                                                      kline.OpenPrice,
-                                                                      kline.ClosePrice,
-                                                                      kline.HighPrice,
-                                                                      kline.LowPrice);
-                    if ((DateTime.UtcNow - alert.LastNotification).TotalSeconds >= 60 && met)
-                    {
-                        await SendNotification(alert, kline);
-                    }
+                    await SendNotification(alert, kline, cancellationToken);
                 }
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -60,15 +68,26 @@ public class AlertNotificationService : IAlertNotificationService
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error checking alert {AlertId}", alert.Id);
-                await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
             }
         }
     }
 
-    private async Task SendNotification(Alert alert, IBinanceKline kline)
+    public async Task SendNotification(Alert alert, IBinanceKline kline, CancellationToken cancellationToken)
     {
         try
         {
+            var met = _javaScriptEvaluator.EvaluateExpression(
+                alert.Expression,
+                kline.OpenPrice,
+                kline.ClosePrice,
+                kline.HighPrice,
+                kline.LowPrice);
+
+            if (!met)
+            {
+                return; // 条件未满足，不发送通知
+            }
 
             var priceChange = kline.ClosePrice - kline.OpenPrice;
             var priceChangePercent = priceChange / kline.OpenPrice * 100;
@@ -100,7 +119,7 @@ public class AlertNotificationService : IAlertNotificationService
             alert.LastNotification = DateTime.UtcNow;
             alert.UpdatedAt = DateTime.UtcNow;
             _globalState.AddOrUpdateAlert(alert.Id, alert);
-            await _alertRepository.UpdateAsync(alert.Id, alert);
+            await _alertRepository.UpdateAsync(alert.Id, alert, cancellationToken);
         }
         catch (Exception ex)
         {

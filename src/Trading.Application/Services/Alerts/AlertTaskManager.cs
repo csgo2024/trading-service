@@ -37,7 +37,7 @@ public class AlertTaskManager : IAlertTaskManager
         _globalState.AddOrUpdateAlert(alert.Id, alert);
         await _baseTaskManager.StartAsync(TaskCategory.Alert,
                                           alert.Id,
-                                          ct => _alertNotificationService.SendNotification(alert, ct),
+                                          ct => _alertNotificationService.ProcessAlertAsync(alert, ct),
                                           cancellationToken);
     }
 
@@ -59,7 +59,7 @@ public class AlertTaskManager : IAlertTaskManager
         _globalState.AddOrUpdateAlert(alert.Id, alert);
         await _baseTaskManager.StartAsync(TaskCategory.Alert,
                                           alert.Id,
-                                          ct => _alertNotificationService.SendNotification(alert, ct),
+                                          ct => _alertNotificationService.ProcessAlertAsync(alert, ct),
                                           cancellationToken);
     }
 

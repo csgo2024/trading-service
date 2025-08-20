@@ -59,6 +59,7 @@ public class AlertNotificationServiceTests
         var kline = CreateKline(100, 110, 115, 95);
         var key = $"{alert.Id}-{alert.Symbol}-{alert.Interval}";
 
+        _globalState.AddOrUpdateAlert(alert.Id, alert);
         _globalState.AddOrUpdateLastKline(key, kline);
         _jsEvaluatorMock.Setup(e => e.EvaluateExpression(alert.Expression, 100, 110, 115, 95)).Returns(true);
         _alertRepoMock.Setup(r => r.UpdateAsync(alert.Id, alert, It.IsAny<CancellationToken>())).ReturnsAsync(true);
@@ -67,7 +68,7 @@ public class AlertNotificationServiceTests
         cts.CancelAfter(300);
 
         // Act
-        await _service.SendNotification(alert, cts.Token);
+        await _service.ProcessAlertAsync(alert, cts.Token);
 
         // Assert
         _alertRepoMock.Verify(r => r.UpdateAsync(alert.Id, alert, It.IsAny<CancellationToken>()), Times.Once);
@@ -82,6 +83,7 @@ public class AlertNotificationServiceTests
         var kline = CreateKline(100, 90, 105, 85);
         var key = $"{alert.Id}-{alert.Symbol}-{alert.Interval}";
 
+        _globalState.AddOrUpdateAlert(alert.Id, alert);
         _globalState.AddOrUpdateLastKline(key, kline);
         _jsEvaluatorMock.Setup(e => e.EvaluateExpression(alert.Expression, 100, 90, 105, 85)).Returns(false);
 
@@ -89,7 +91,7 @@ public class AlertNotificationServiceTests
         cts.CancelAfter(300);
 
         // Act
-        await _service.SendNotification(alert, cts.Token);
+        await _service.ProcessAlertAsync(alert, cts.Token);
 
         // Assert
         _alertRepoMock.Verify(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<Alert>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -103,6 +105,7 @@ public class AlertNotificationServiceTests
         var alert = CreateAlert();
         var key = $"{alert.Id}-{alert.Symbol}-{alert.Interval}";
         var kline = CreateKline(100, 90, 105, 85);
+        _globalState.AddOrUpdateAlert(alert.Id, alert);
         _globalState.AddOrUpdateLastKline(key, kline);
 
         _jsEvaluatorMock
@@ -115,7 +118,7 @@ public class AlertNotificationServiceTests
         // Act
         try
         {
-            await _service.SendNotification(alert, cts.Token);
+            await _service.ProcessAlertAsync(alert, cts.Token);
         }
         catch (Exception)
         {
@@ -123,6 +126,6 @@ public class AlertNotificationServiceTests
         }
 
         // Assert
-        _loggerMock.VerifyLoggingTimes(LogLevel.Error, "Error checking alert", Times.AtLeastOnce);
+        _loggerMock.VerifyLoggingTimes(LogLevel.Error, "Failed to send alert", Times.AtLeastOnce);
     }
 }
