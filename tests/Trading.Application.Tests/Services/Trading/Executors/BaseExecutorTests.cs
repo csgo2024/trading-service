@@ -58,13 +58,13 @@ public class BaseExecutorTests
     public async Task Execute_ShouldCheckOrderStatusAndUpdateStrategy()
     {
         // Arrange
+        var oldTime = DateTime.UtcNow;
         var strategy = new Strategy
         {
             OrderId = 12345,
             HasOpenOrder = true,
-            OrderPlacedTime = DateTime.UtcNow
+            OrderPlacedTime = oldTime,
         };
-        _mockAccountProcessor.SetupSuccessfulPlaceLongOrderAsync(12345L);
         _mockAccountProcessor.SetupSuccessfulGetOrder(OrderStatus.New);
         _mockStrategyRepository.Setup(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);
@@ -75,11 +75,12 @@ public class BaseExecutorTests
         // Assert
         Assert.True(strategy.HasOpenOrder); // True since order status is new.
         Assert.NotNull(strategy.OrderId);
+        Assert.Equal(oldTime, strategy.OrderPlacedTime); // OrderPlacedTime should not be updated.
         _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
-    public async Task ExecuteLoop_ShouldGetStrategyFromStateManagerAndExecute()
+    public async Task ExecuteLoop_ShouldExecute_WhenOrderPlacedTimeMoreThan2m()
     {
         // Arrange
         var strategy = new Strategy
@@ -88,7 +89,8 @@ public class BaseExecutorTests
             StrategyType = StrategyType.CloseSell,
             OrderId = 12345,
             HasOpenOrder = true,
-            OrderPlacedTime = DateTime.UtcNow
+            // only place order if it was placed more than 2 minutes ago
+            OrderPlacedTime = DateTime.UtcNow.AddMinutes(-3)
         };
 
         using var cts = new CancellationTokenSource();
@@ -109,6 +111,36 @@ public class BaseExecutorTests
         // Assert
         _mockState.Verify(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny), Times.AtLeastOnce);
         _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task ExecuteLoop_ShouldNotExecute_WhenOrderPlacedTimeLessThan2m()
+    {
+        // Arrange
+        var strategy = new Strategy
+        {
+            Id = "test-id",
+            StrategyType = StrategyType.CloseSell,
+            OrderId = 12345,
+            HasOpenOrder = true,
+            // won't place order if it was placed less than 2 minutes ago
+            OrderPlacedTime = DateTime.UtcNow.AddMinutes(-1)
+        };
+
+        using var cts = new CancellationTokenSource();
+        cts.CancelAfter(TimeSpan.FromSeconds(1)); // Cancel after 1 second to end the loop
+
+        _mockState
+            .Setup(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny))
+            .Callback((string key, out Strategy? a) => { a = strategy; })
+            .Returns(true);
+
+        // Act
+        await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy.Id, cts.Token);
+
+        // Assert
+        _mockState.Verify(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny), Times.AtLeastOnce);
+        _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

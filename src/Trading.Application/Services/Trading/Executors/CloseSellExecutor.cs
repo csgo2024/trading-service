@@ -23,6 +23,9 @@ public class CloseSellExecutor : BaseExecutor
 
     public override StrategyType StrategyType => StrategyType.CloseSell;
 
+    /// <summary>
+    /// This is to ensure that we always try to place order when kline is closed.
+    /// </summary>
     public override async Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event, CancellationToken cancellationToken)
     {
         if (strategy.AccountType == AccountType.Spot)
@@ -46,6 +49,7 @@ public class CloseSellExecutor : BaseExecutor
         {
             return;
         }
+        // strategy is not ready to execute as it has not received kline closed event yet
         if (strategy.OpenPrice is null || strategy.TargetPrice <= 0 || strategy.Quantity <= 0)
         {
             return;

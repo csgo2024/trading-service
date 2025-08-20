@@ -98,13 +98,27 @@ public abstract class BaseExecutor
         {
             try
             {
-                // get strategy from state manager to ensure we have the latest state
+                // get strategy from global state to ensure we have the latest state
                 _globalState.TryGetStrategy(strategyId, out var strategy);
                 if (strategy != null)
                 {
-                    await ExecuteAsync(accountProcessor, strategy, cancellationToken);
+                    if (strategy.OrderPlacedTime is null)
+                    {
+                        await ExecuteAsync(accountProcessor, strategy, cancellationToken);
+                    }
+                    else
+                    {
+                        var elapsed = (DateTime.UtcNow - strategy.OrderPlacedTime.Value).TotalSeconds;
+                        if (elapsed >= 2 * 60) // 2 minutes
+                        {
+                            await ExecuteAsync(accountProcessor, strategy, cancellationToken);
+                        }
+                    }
+                    // after ExecuteAsync is called, orderPlacedTime has been updated
+                    // so we need to update strategy in global state to ensure we don't execute too frequently
+                    _globalState.AddOrUpdateStrategy(strategyId, strategy);
                 }
-                await Task.Delay(TimeSpan.FromMinutes(2), cancellationToken);
+                await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {

@@ -46,9 +46,9 @@ public class StrategyTaskManager : IStrategyTaskManager
             var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType)!;
 
             await _baseTaskManager.StartAsync(TaskCategory.Strategy,
-                                          strategy.Id,
-                                          async (ct) => await executor!.ExecuteLoopAsync(accountProcessor, strategy.Id, ct),
-                                          cancellationToken);
+                                              strategy.Id,
+                                              async (ct) => await executor!.ExecuteLoopAsync(accountProcessor, strategy.Id, ct),
+                                              cancellationToken);
         }
     }
 
@@ -82,9 +82,9 @@ public class StrategyTaskManager : IStrategyTaskManager
             var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType)!;
 
             await _baseTaskManager.StartAsync(TaskCategory.Strategy,
-                                          strategy.Id,
-                                          async (ct) => await executor!.ExecuteLoopAsync(accountProcessor, strategy.Id, ct),
-                                          cancellationToken);
+                                              strategy.Id,
+                                              async (ct) => await executor!.ExecuteLoopAsync(accountProcessor, strategy.Id, ct),
+                                              cancellationToken);
         }
     }
 }

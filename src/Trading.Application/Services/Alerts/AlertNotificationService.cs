@@ -46,17 +46,12 @@ public class AlertNotificationService : IAlertNotificationService
 
                 // 计算距离上次通知经过的时间
                 var elapsed = (DateTime.UtcNow - alert.LastNotification).TotalSeconds;
-                if (elapsed < 60)
+                if (elapsed >= 60)
                 {
-                    // 冷却期内：直接 sleep 剩余冷却时间
-                    var remaining = TimeSpan.FromSeconds(60 - elapsed);
-                    await Task.Delay(remaining, cancellationToken);
-                    continue;
-                }
-
-                if (_globalState.TryGetLastKline(key, out var kline) && kline != null)
-                {
-                    await SendNotification(alert, kline, cancellationToken);
+                    if (_globalState.TryGetLastKline(key, out var kline) && kline != null)
+                    {
+                        await SendNotification(alert, kline, cancellationToken);
+                    }
                 }
 
                 await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
