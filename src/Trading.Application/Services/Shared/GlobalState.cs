@@ -133,9 +133,7 @@ public class GlobalState
             Alerts = _alerts.Values().Select(x => new { x.Id, x.Expression, x.Interval }),
             Strategies = _strategies.Values().Select(x => new { x.Id, x.StrategyType, x.AccountType }),
             Tasks = _taskState.Values().Select(x => new { x.Id, x.Category }),
-            Symbols = _stream.GetAllSymbols(),
-            Intervals = _stream.GetAllIntervals(),
-            LastConnectionTime = _stream.LastConnectionTime,
+            _stream.LastConnectionTime,
             NeedsReconnection = _stream.NeedsReconnection(),
         };
         return JsonSerializer.Serialize(snapshot, _options);
