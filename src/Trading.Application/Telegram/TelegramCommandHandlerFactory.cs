@@ -14,6 +14,7 @@ public class TelegramCommandHandlerFactory
         {
             {AlertCommandHandler.CallbackPrefix, typeof(AlertCommandHandler)},
             {AlertCommandHandler.Command, typeof(AlertCommandHandler)},
+            {DebugCommandHandler.Command, typeof(DebugCommandHandler)},
             {HelpCommandHandler.Command, typeof(HelpCommandHandler)},
             {StrategyCommandHandler.CallbackPrefix, typeof(StrategyCommandHandler)},
             {StrategyCommandHandler.Command, typeof(StrategyCommandHandler)},

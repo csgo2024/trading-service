@@ -34,13 +34,14 @@ public class TelegramCommandHandlerFactoryTests
         services.AddSingleton(Mock.Of<ITelegramBotClient>()); // Add TelegramBotClient mock
         services.AddSingleton(Mock.Of<IAlertNotificationService>()); // Add TelegramBotClient mock
 
-        var mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
+        var mockState = new GlobalState(Mock.Of<ILogger<GlobalState>>());
         services.AddSingleton(mockState);
 
         var jsEvaluatorMock = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
         services.AddSingleton(jsEvaluatorMock.Object);
 
         services.AddTransient<HelpCommandHandler>();
+        services.AddTransient<DebugCommandHandler>();
         services.AddTransient<StrategyCommandHandler>();
         services.AddTransient<AlertCommandHandler>();
 
@@ -49,6 +50,7 @@ public class TelegramCommandHandlerFactoryTests
     }
 
     [Theory]
+    [InlineData("/debug", typeof(DebugCommandHandler))]
     [InlineData("/help", typeof(HelpCommandHandler))]
     [InlineData("/alert", typeof(AlertCommandHandler))]
     [InlineData("/strategy", typeof(StrategyCommandHandler))]

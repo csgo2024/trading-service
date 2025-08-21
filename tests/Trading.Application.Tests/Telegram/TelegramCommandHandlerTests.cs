@@ -52,6 +52,7 @@ public class TelegramCommandHandlerTests
     }
 
     [Theory]
+    [InlineData("/debug", "", "/debug")]
     [InlineData("/help", "", "/help")]
     [InlineData("/alert", "", "/alert")]
     [InlineData("/strategy create btc", "create btc", "/strategy")]

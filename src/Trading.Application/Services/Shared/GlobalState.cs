@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Binance.Net.Interfaces;
 using CryptoExchange.Net.Objects.Sockets;
 using Microsoft.Extensions.Logging;
@@ -76,6 +78,7 @@ public class GlobalState
     private readonly ConcurrentStateBase<string, Strategy> _strategies;
     private readonly ConcurrentStateBase<string, TaskInfo> _taskState;
     private readonly StreamState _stream;
+    private readonly JsonSerializerOptions _options;
 
     public GlobalState(ILogger<GlobalState> logger)
     {
@@ -84,6 +87,11 @@ public class GlobalState
         _strategies = new ConcurrentStateBase<string, Strategy>();
         _stream = new StreamState();
         _taskState = new ConcurrentStateBase<string, TaskInfo>();
+        _options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+        };
         logger.LogInformation("Global state initialized.");
     }
 
@@ -117,4 +125,20 @@ public class GlobalState
     public virtual bool TryGetStrategy(string key, out Strategy? value) => _strategies.TryGetValue(key, out value);
     public virtual Strategy[] GetAllStrategies() => _strategies.Values();
     #endregion
+
+    public override string ToString()
+    {
+        var snapshot = new
+        {
+            Alerts = _alerts.Values().Select(x => new { x.Id, x.Expression, x.Interval }),
+            Strategies = _strategies.Values().Select(x => new { x.Id, x.StrategyType, x.AccountType }),
+            Tasks = _taskState.Values().Select(x => new { x.Id, x.Category }),
+            Symbols = _stream.GetAllSymbols(),
+            Intervals = _stream.GetAllIntervals(),
+            LastConnectionTime = _stream.LastConnectionTime,
+            NeedsReconnection = _stream.NeedsReconnection(),
+        };
+        return JsonSerializer.Serialize(snapshot, _options);
+    }
+
 }
