@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.API.HostServices;
+using Trading.API.Tests;
 using Trading.Application.Services.Shared;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
@@ -147,13 +148,6 @@ public class StreamHostServiceTests
         await service.StartAsync(cts.Token);
 
         // Assert
-        _loggerMock.Verify(
-            x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Initial subscription failed")),
-                It.IsAny<Exception>(),
-                It.IsAny<Func<It.IsAnyType, Exception, string>>()),
-            Times.AtLeastOnce);
+        _loggerMock.VerifyLoggingTimes(LogLevel.Error, "Initial subscription failed", Times.AtLeastOnce());
     }
 }

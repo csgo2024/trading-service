@@ -125,11 +125,6 @@ public class AlertTaskManagerTests
 
         // Assert
         _taskManagerMock.Verify(m => m.StopAsync(TaskCategory.Alert), Times.Once);
-        _loggerMock.Verify(l => l.Log(
-            LogLevel.Information,
-            It.IsAny<EventId>(),
-            It.Is<It.IsAnyType>((v, t) => v.ToString().Contains("Alerts emptyed")),
-            null,
-            It.IsAny<Func<It.IsAnyType, Exception, string>>()), Times.Once);
+        _loggerMock.VerifyLoggingOnce(LogLevel.Information, "Alerts emptyed");
     }
 }

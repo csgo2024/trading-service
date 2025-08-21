@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.API.HostServices;
+using Trading.API.Tests;
 using Trading.Application.Services.Trading;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
@@ -78,7 +79,7 @@ public class TradingHostServiceTests
         await _hostService.StartAsync(cts.Token);
 
         // Assert
-        _mockLogger.VerifyLog(LogLevel.Error, "Error initializing trading service", Times.AtLeastOnce());
+        _mockLogger.VerifyLoggingTimes(LogLevel.Error, "Error initializing trading service", Times.AtLeastOnce());
     }
 
     [Fact]
@@ -99,7 +100,7 @@ public class TradingHostServiceTests
         await _hostService.StartAsync(cts.Token);
 
         // Assert
-        _mockLogger.VerifyLog(LogLevel.Error, "Error initializing trading service", Times.AtLeastOnce());
+        _mockLogger.VerifyLoggingTimes(LogLevel.Error, "Error initializing trading service", Times.AtLeastOnce());
     }
 
     [Fact]
@@ -135,22 +136,5 @@ public class TradingHostServiceTests
             DelayCalled = true;
             return Task.CompletedTask; // no real delay
         }
-    }
-}
-// Logger Verify Extension
-public static class LoggerExtensions
-{
-    public static void VerifyLog<T>(this Mock<ILogger<T>> logger, LogLevel level, string containsMessage, Times times)
-    {
-        logger.Verify(
-            x => x.Log(
-                level,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((v, _) => v.ToString().Contains(containsMessage)),
-                It.IsAny<Exception>(),
-                It.Is<Func<It.IsAnyType, Exception, string>>((_, __) => true)
-            ),
-            times
-        );
     }
 }

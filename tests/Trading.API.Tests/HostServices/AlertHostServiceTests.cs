@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.API.HostServices;
+using Trading.API.Tests;
 using Trading.Application.Services.Alerts;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
@@ -77,7 +78,7 @@ public class AlertHostServiceTests
         await _hostService.StartAsync(cts.Token);
 
         // Assert
-        _loggerMock.VerifyLog(LogLevel.Error, "Error initializing alertHost service", Times.AtLeastOnce());
+        _loggerMock.VerifyLoggingTimes(LogLevel.Error, "Error initializing alertHost service", Times.AtLeastOnce());
     }
 
     [Fact]
@@ -98,7 +99,7 @@ public class AlertHostServiceTests
         await _hostService.StartAsync(cts.Token);
 
         // Assert
-        _loggerMock.VerifyLog(LogLevel.Error, "Error initializing alertHost service", Times.AtLeastOnce());
+        _loggerMock.VerifyLoggingTimes(LogLevel.Error, "Error initializing alertHost service", Times.AtLeastOnce());
     }
 
     [Fact]
