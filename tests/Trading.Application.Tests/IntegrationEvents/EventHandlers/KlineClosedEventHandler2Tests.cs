@@ -60,7 +60,7 @@ public class KlineClosedEventHandler2Tests
         var kline = CreateKline();
         var @event = new KlineClosedEvent("BTCUSDT", KlineInterval.FiveMinutes, kline);
 
-        _alertRepositoryMock.Setup(r => r.GetAllAlerts()).ReturnsAsync([alert]);
+        _alertRepositoryMock.Setup(r => r.GetAllAsync()).ReturnsAsync([alert]);
 
         // Act
         await _handler.Handle(@event, CancellationToken.None);
@@ -80,7 +80,7 @@ public class KlineClosedEventHandler2Tests
         var kline = CreateKline();
         var @event = new KlineClosedEvent("BTCUSDT", KlineInterval.FiveMinutes, kline);
 
-        _alertRepositoryMock.Setup(r => r.GetAllAlerts()).ReturnsAsync([alert]);
+        _alertRepositoryMock.Setup(r => r.GetAllAsync()).ReturnsAsync([alert]);
 
         // Act
         await _handler.Handle(@event, CancellationToken.None);
@@ -100,7 +100,7 @@ public class KlineClosedEventHandler2Tests
         var @event = new KlineClosedEvent("BTCUSDT", KlineInterval.FiveMinutes, kline);
 
         // symbol not match
-        _alertRepositoryMock.Setup(r => r.GetAllAlerts()).ReturnsAsync([alert]);
+        _alertRepositoryMock.Setup(r => r.GetAllAsync()).ReturnsAsync([alert]);
 
         // Act
         await _handler.Handle(@event, CancellationToken.None);

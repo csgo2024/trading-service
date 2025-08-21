@@ -41,7 +41,7 @@ public class StrategyCommandHandlerTests
     public async Task HandleAsync_WithEmptyParameters_LogInformation_WhenNoStrategies()
     {
         // arrange
-        _mockStrategyRepository.Setup(x => x.GetAllStrategies())
+        _mockStrategyRepository.Setup(x => x.GetAllAsync())
             .ReturnsAsync([]);
         // Act
         await _handler.HandleAsync("");
@@ -56,7 +56,7 @@ public class StrategyCommandHandlerTests
     public async Task HandleAsync_WithEmptyParameters_ShouldReturnStrategyInformation(Status status, string statusText)
     {
         // arrange
-        _mockStrategyRepository.Setup(x => x.GetAllStrategies())
+        _mockStrategyRepository.Setup(x => x.GetAllAsync())
             .ReturnsAsync([new Strategy()
                 {
                     Symbol = "BTCUSDT",

@@ -38,7 +38,7 @@ public class CreateStrategyCommandHandler : IRequestHandler<CreateStrategyComman
             request.StrategyType,
             request.StopLossExpression
         );
-        await _strategyRepository.Add(entity, cancellationToken);
+        await _strategyRepository.AddAsync(entity, cancellationToken);
         _logger.LogInformation("[{Interval}-{StrategyType}] Strategy created: {StrategyId}",
                                entity.Interval,
                                entity.StrategyType,

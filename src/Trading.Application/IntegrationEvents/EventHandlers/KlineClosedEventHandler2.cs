@@ -25,7 +25,7 @@ public class KlineClosedEventHandler2 : INotificationHandler<KlineClosedEvent>
 
     public virtual async Task Handle(KlineClosedEvent @event, CancellationToken cancellationToken)
     {
-        var alerts = await _alertRepository.GetAllAlerts();
+        var alerts = await _alertRepository.GetAllAsync();
         foreach (var alert in alerts)
         {
             if (alert.Symbol == @event.Symbol && alert.Interval == BinanceHelper.ConvertToIntervalString(@event.Interval))

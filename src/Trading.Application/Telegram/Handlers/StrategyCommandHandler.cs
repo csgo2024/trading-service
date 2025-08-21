@@ -60,7 +60,7 @@ public class StrategyCommandHandler : ICommandHandler
 
     private async Task HandleDefault()
     {
-        var strategies = await _strategyRepository.GetAllStrategies();
+        var strategies = await _strategyRepository.GetAllAsync();
         if (strategies.Count == 0)
         {
             _logger.LogInformation("Strategy is empty, please create and call later.");

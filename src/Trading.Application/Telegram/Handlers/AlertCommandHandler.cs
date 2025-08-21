@@ -67,7 +67,7 @@ public class AlertCommandHandler : ICommandHandler
 
     private async Task HandleDefault()
     {
-        var alerts = await _alertRepository.GetAllAlerts();
+        var alerts = await _alertRepository.GetAllAsync();
         if (alerts.Count == 0)
         {
             _logger.LogInformation("Alert is empty, please create and call later.");
@@ -102,7 +102,7 @@ public class AlertCommandHandler : ICommandHandler
     }
     private async Task HandleEmpty()
     {
-        var count = await _alertRepository.ClearAllAlertsAsync(CancellationToken.None);
+        var count = await _alertRepository.ClearAllAsync(CancellationToken.None);
         await _mediator.Publish(new AlertEmptyedEvent());
         _logger.LogInformation("{Count} Alarms empty successfully.", count);
     }

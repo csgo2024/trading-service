@@ -38,7 +38,7 @@ public class AlertCommandHandlerTests
     public async Task HandleAsync_WithEmptyParameters_ReturnAlertInformation(Status status, string displayText)
     {
         // arrange
-        _mockAlertRepository.Setup(x => x.GetAllAlerts())
+        _mockAlertRepository.Setup(x => x.GetAllAsync())
             .ReturnsAsync([new Alert() { Symbol = "BTCUSDT", Status = status, Expression = "close > 100" }]);
         // Act
         await _handler.HandleAsync("");
@@ -55,7 +55,7 @@ public class AlertCommandHandlerTests
     public async Task HandleAsync_WithEmptyParameters_ShouldLogInformation_WhenNoAlerts()
     {
         // arrange
-        _mockAlertRepository.Setup(x => x.GetAllAlerts())
+        _mockAlertRepository.Setup(x => x.GetAllAsync())
             .ReturnsAsync([]);
         // Act
         await _handler.HandleAsync("");
@@ -68,14 +68,14 @@ public class AlertCommandHandlerTests
     {
         // Arrange
         _mockAlertRepository
-            .Setup(x => x.ClearAllAlertsAsync(It.IsAny<CancellationToken>()))
+            .Setup(x => x.ClearAllAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(5);
 
         // Act
         await _handler.HandleAsync("empty");
 
         // Assert
-        _mockAlertRepository.Verify(x => x.ClearAllAlertsAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockAlertRepository.Verify(x => x.ClearAllAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockMediator.Verify(x => x.Publish(It.IsAny<AlertEmptyedEvent>(), It.IsAny<CancellationToken>()), Times.Once);
         _mockLogger.VerifyLoggingOnce(LogLevel.Information, "Alarms empty successfully");
     }

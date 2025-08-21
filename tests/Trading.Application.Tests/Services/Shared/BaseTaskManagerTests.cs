@@ -36,10 +36,12 @@ public class BaseTaskManagerTests
             cts.Token);
 
         await Task.Delay(200); // Wait for task execution
+        _globalState.TryGetTask(taskId, out var taskInfo);
 
         // Assert
         Assert.True(executed);
-        Assert.Contains(taskId, taskManager.GetActiveTaskIds(TaskCategory.Strategy));
+        Assert.NotNull(taskInfo);
+        Assert.Equal(taskId, taskInfo.Id);
         await taskManager.StopAsync();
         await taskManager.DisposeAsync();
     }
@@ -101,9 +103,11 @@ public class BaseTaskManagerTests
 
         // Act
         await taskManager.StopAsync(TaskCategory.Strategy, taskId);
+        _globalState.TryGetTask(taskId, out var taskInfo);
 
+        // Assert
+        Assert.Null(taskInfo);
         _mockLogger.VerifyLoggingOnce(LogLevel.Information, $"Task stopped: Category={TaskCategory.Strategy}, TaskId={taskId}");
-        Assert.Empty(taskManager.GetActiveTaskIds(TaskCategory.Strategy));
         await taskManager.StopAsync();
         await taskManager.DisposeAsync();
     }
@@ -143,41 +147,12 @@ public class BaseTaskManagerTests
         await taskManager.StopAsync(TaskCategory.Strategy);
 
         // Assert
+        foreach (var taskId in taskIds)
+        {
+            _globalState.TryGetTask(taskId, out var taskInfo);
+            Assert.Null(taskInfo);
+        }
         Assert.Equal(0, executingTasks);
-        Assert.Empty(taskManager.GetActiveTaskIds(TaskCategory.Strategy));
-        await taskManager.DisposeAsync();
-    }
-
-    [Fact]
-    public async Task GetActiveTaskIds_ShouldReturnCorrectTasksForCategory()
-    {
-        // Arrange
-        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
-        var strategyTaskId = Guid.NewGuid().ToString();
-        var alertTaskId = Guid.NewGuid().ToString();
-
-        using var cts = new CancellationTokenSource();
-        await taskManager.StartAsync(
-            TaskCategory.Strategy,
-            strategyTaskId,
-            ct => Task.Delay(1000, ct),
-            cts.Token);
-
-        await taskManager.StartAsync(
-            TaskCategory.Alert,
-            alertTaskId,
-            ct => Task.Delay(1000, ct),
-            cts.Token);
-
-        // Act
-        var strategyTasks = taskManager.GetActiveTaskIds(TaskCategory.Strategy);
-        var alertTasks = taskManager.GetActiveTaskIds(TaskCategory.Alert);
-
-        // Assert
-        Assert.Single(strategyTasks);
-        Assert.Equal(strategyTaskId, strategyTasks[0]);
-        Assert.Single(alertTasks);
-        Assert.Equal(alertTaskId, alertTasks[0]);
         await taskManager.DisposeAsync();
     }
 
@@ -220,9 +195,12 @@ public class BaseTaskManagerTests
         await taskManager.StopAsync();
 
         // Assert
+        foreach (var taskId in tasks.Select(t => t.Item2))
+        {
+            _globalState.TryGetTask(taskId, out var taskInfo);
+            Assert.Null(taskInfo);
+        }
         Assert.Equal(0, executingTasks);
-        Assert.Empty(taskManager.GetActiveTaskIds(TaskCategory.Strategy));
-        Assert.Empty(taskManager.GetActiveTaskIds(TaskCategory.Alert));
         await taskManager.DisposeAsync();
     }
 }

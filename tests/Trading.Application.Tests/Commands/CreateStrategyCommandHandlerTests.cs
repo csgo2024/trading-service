@@ -43,7 +43,7 @@ public class CreateStrategyCommandHandlerTests
 
         Strategy? capturedStrategy = null;
         _mockStrategyRepository
-            .Setup(x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.AddAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .Callback<Strategy, CancellationToken>((strategy, _) => capturedStrategy = strategy)
             .ReturnsAsync((Strategy s, CancellationToken _) => s);
 
@@ -66,7 +66,7 @@ public class CreateStrategyCommandHandlerTests
 
         // Verify repository call
         _mockStrategyRepository.Verify(
-            x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
+            x => x.AddAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -96,7 +96,7 @@ public class CreateStrategyCommandHandlerTests
 
         // Verify no repository calls or events
         _mockStrategyRepository.Verify(
-            x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
+            x => x.AddAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
             Times.Never);
         _mockMediator.Verify(
             x => x.Publish(It.IsAny<StrategyCreatedEvent>(), It.IsAny<CancellationToken>()),
@@ -163,7 +163,7 @@ public class CreateStrategyCommandHandlerTests
 
         var expectedException = new InvalidOperationException("Test exception");
         _mockStrategyRepository
-            .Setup(x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
+            .Setup(x => x.AddAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(expectedException);
 
         // Act & Assert

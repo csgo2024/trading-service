@@ -20,7 +20,6 @@ public interface ITaskManager : IAsyncDisposable
     Task StopAsync(TaskCategory category, string taskId);
     Task StopAsync(TaskCategory category);
     Task StopAsync();
-    string[] GetActiveTaskIds(TaskCategory category);
 }
 
 public class BaseTaskManager : ITaskManager
@@ -136,8 +135,6 @@ public class BaseTaskManager : ITaskManager
         }
         _logger.LogInformation("All tasks stopped across all categories");
     }
-
-    public string[] GetActiveTaskIds(TaskCategory category) => [.. _state.GetAllTasks().Where(k => k.Category == category).Select(k => k.Id)];
 
     public async ValueTask DisposeAsync()
     {

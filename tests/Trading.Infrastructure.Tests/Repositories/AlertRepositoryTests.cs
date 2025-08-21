@@ -8,26 +8,27 @@ namespace Trading.Infrastructure.Tests.Repositories;
 public class AlertRepositoryTests : IClassFixture<MongoDbFixture>
 {
     private readonly MongoDbFixture _fixture;
-    private readonly AlertRepository _repository;
-
+    private readonly AlertRepository _alertRepository;
     private readonly IDomainEventDispatcher _domainEventDispatcher;
+
     public AlertRepositoryTests(MongoDbFixture fixture)
     {
         _fixture = fixture;
         _domainEventDispatcher = fixture.DomainEventDispatcher;
-        _repository = new AlertRepository(_fixture.MongoContext!, _domainEventDispatcher);
+        _alertRepository = new AlertRepository(_fixture.MongoContext!, _domainEventDispatcher);
     }
+
     [Fact]
     public async Task GetActiveAlertsAsync_ShouldReturnOnlyActiveAlerts()
     {
         // Arrange
         var activeAlert = new Alert { Id = "1", Symbol = "BTCUSDT", Status = Status.Running };
         var inactiveAlert = new Alert { Id = "2", Symbol = "ETHUSDT", Status = Status.Paused };
-        await _repository.AddAsync(activeAlert);
-        await _repository.AddAsync(inactiveAlert);
+        await _alertRepository.AddAsync(activeAlert);
+        await _alertRepository.AddAsync(inactiveAlert);
 
         // Act
-        var result = await _repository.GetActiveAlertsAsync(CancellationToken.None);
+        var result = await _alertRepository.GetActiveAlertsAsync(CancellationToken.None);
 
         // Assert
         var alerts = result.ToList();
@@ -36,70 +37,50 @@ public class AlertRepositoryTests : IClassFixture<MongoDbFixture>
     }
 
     [Fact]
-    public async Task GetActiveAlerts_WithSymbol_ShouldReturnMatchingAlerts()
+    public async Task ClearAllAsync_ShouldRemoveAllAlerts()
     {
-        await _repository.EmptyAsync();
-        // Arrange
-        var symbol = "BTCUSDT";
-        var matchingAlert = new Alert { Id = "1", Symbol = symbol, Status = Status.Running };
-        var differentSymbolAlert = new Alert { Id = "2", Symbol = "ETHUSDT", Status = Status.Running };
-        await _repository.AddAsync(matchingAlert);
-        await _repository.AddAsync(differentSymbolAlert);
-
-        // Act
-        var result = _repository.GetActiveAlerts(symbol);
-
-        // Assert
-        var alerts = result.ToList();
-        Assert.Single(alerts);
-        Assert.Equal(matchingAlert.Id, alerts[0].Id);
-    }
-
-    [Fact]
-    public async Task ClearAllAlertsAsync_ShouldRemoveAllAlerts()
-    {
-        await _repository.EmptyAsync();
+        await _alertRepository.EmptyAsync();
         // Arrange
         var alerts = new[]
         {
             new Alert {  Symbol = "BTCUSDT" },
             new Alert {  Symbol = "ETHUSDT" }
         };
-        await Task.WhenAll(alerts.Select(a => _repository.AddAsync(a)));
+        await Task.WhenAll(alerts.Select(a => _alertRepository.AddAsync(a)));
 
         // Act
-        var deletedCount = await _repository.ClearAllAlertsAsync(CancellationToken.None);
+        var deletedCount = await _alertRepository.ClearAllAsync(CancellationToken.None);
 
         // Assert
         Assert.Equal(alerts.Length, deletedCount);
     }
 
     [Fact]
-    public async Task ClearAllAlertsAsync_WhenEmpty_ShouldReturnZero()
+    public async Task ClearAllAsync_WhenEmpty_ShouldReturnZero()
     {
-        await _repository.EmptyAsync();
+        await _alertRepository.EmptyAsync();
         // Act
-        var deletedCount = await _repository.ClearAllAlertsAsync(CancellationToken.None);
+        var deletedCount = await _alertRepository.ClearAllAsync(CancellationToken.None);
 
         // Assert
         Assert.Equal(0, deletedCount);
     }
     [Fact]
-    public async Task GetAllAlerts_ShouldReturnAllAlerts()
+    public async Task GetAllAsync_ShouldReturnAllAlerts()
     {
-        await _repository.EmptyAsync();
+        await _alertRepository.EmptyAsync();
         // Arrange
         var alert1 = new Alert { Id = "1", Symbol = "BTCUSDT" };
         var alert2 = new Alert { Id = "2", Symbol = "ETHUSDT" };
         var alert3 = new Alert { Id = "3", Symbol = "DOGEUSDT" };
         await Task.WhenAll(
-            _repository.AddAsync(alert1),
-            _repository.AddAsync(alert2),
-            _repository.AddAsync(alert3)
+            _alertRepository.AddAsync(alert1),
+            _alertRepository.AddAsync(alert2),
+            _alertRepository.AddAsync(alert3)
         );
 
         // Act
-        var result = await _repository.GetAllAlerts();
+        var result = await _alertRepository.GetAllAsync();
 
         // Assert
         var alerts = result.ToList();

@@ -16,12 +16,7 @@ public class AlertRepository : BaseRepository<Alert>, IAlertRepository
     {
         return await _collection.Find(x => x.Status == Status.Running).ToListAsync(cancellationToken);
     }
-    public IEnumerable<Alert> GetActiveAlerts(string symbol)
-    {
-        return _collection.Find(x => x.Status == Status.Running && x.Symbol == symbol).ToList();
-    }
-
-    public async Task<int> ClearAllAlertsAsync(CancellationToken cancellationToken)
+    public async Task<int> ClearAllAsync(CancellationToken cancellationToken)
     {
         var deleteResult = await _collection.DeleteManyAsync(
             Builders<Alert>.Filter.Empty,
@@ -30,7 +25,7 @@ public class AlertRepository : BaseRepository<Alert>, IAlertRepository
         return (int)deleteResult.DeletedCount;
     }
 
-    public async Task<List<Alert>> GetAllAlerts()
+    public async Task<List<Alert>> GetAllAsync()
     {
         var filter = Builders<Alert>.Filter.Empty;
         var alerts = await _collection.Find(filter).SortBy(x => x.Symbol).SortBy(x => x.CreatedAt).ToListAsync();

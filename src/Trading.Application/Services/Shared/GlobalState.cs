@@ -2,66 +2,40 @@ using System.Collections.Concurrent;
 using Binance.Net.Interfaces;
 using CryptoExchange.Net.Objects.Sockets;
 using Microsoft.Extensions.Logging;
-using Trading.Common.Enums;
 using Trading.Domain.Entities;
 
 namespace Trading.Application.Services.Shared;
 
-internal sealed class AlertState
+public class ConcurrentStateBase<TKey, TValue> where TKey : notnull
 {
-    private readonly ConcurrentDictionary<string, Alert> _activeAlerts = new();
+    protected readonly ConcurrentDictionary<TKey, TValue> _state = new();
 
-    public bool AddOrUpdate(string id, Alert alert)
-    {
-        _activeAlerts.AddOrUpdate(id, alert, (_, _) => alert);
-        return true;
-    }
+    public virtual bool TryAdd(TKey key, TValue value) =>
+        _state.TryAdd(key, value);
 
-    public bool TryGetValue(string key, out Alert? alert)
+    public virtual bool AddOrUpdate(TKey key, TValue value)
     {
-        return _activeAlerts.TryGetValue(key, out alert);
-    }
-    public bool TryRemove(string id)
-    {
-        var result = _activeAlerts.TryRemove(id, out _);
-        return result;
+        var isNew = !_state.ContainsKey(key);
+        _state.AddOrUpdate(key, value, (_, _) => value);
+        return isNew;
     }
 
-    public void Clear()
-    {
-        _activeAlerts.Clear();
-    }
-}
+    public virtual bool TryGetValue(TKey key, out TValue? value) =>
+        _state.TryGetValue(key, out value);
 
-internal sealed class KlineState
-{
-    private readonly ConcurrentDictionary<string, IBinanceKline> _lastKlines = new();
+    public virtual bool TryRemove(TKey key, out TValue? value) =>
+        _state.TryRemove(key, out value);
 
-    public void AddOrUpdate(string key, IBinanceKline kline)
-    {
-        _lastKlines.AddOrUpdate(key, kline, (_, _) => kline);
-    }
+    public virtual void Clear() => _state.Clear();
 
-    public bool TryGetValue(string key, out IBinanceKline? kline)
-    {
-        return _lastKlines.TryGetValue(key, out kline);
-    }
-
-    public bool TryRemove(string key)
-    {
-        return _lastKlines.TryRemove(key, out _);
-    }
-    public void Clear()
-    {
-        _lastKlines.Clear();
-    }
+    public virtual TValue[] Values() => [.. _state.Values];
 }
 
 internal sealed class StreamState
 {
     private readonly HashSet<string> _symbols = new();
     private readonly HashSet<string> _intervals = new();
-    private readonly TimeSpan _reconnectInterval = TimeSpan.FromMinutes(12 * 60);
+    private readonly TimeSpan _reconnectInterval = TimeSpan.FromHours(12);
 
     public DateTime? LastConnectionTime { get; set; }
     public UpdateSubscription? CurrentSubscription { get; set; }
@@ -70,22 +44,14 @@ internal sealed class StreamState
     {
         var before = _symbols.Count;
         _symbols.UnionWith(symbols);
-        if (_symbols.Count > before)
-        {
-            return true;
-        }
-        return false;
+        return _symbols.Count > before;
     }
 
     public bool TryAddIntervals(IEnumerable<string> intervals)
     {
         var before = _intervals.Count;
         _intervals.UnionWith(intervals);
-        if (_intervals.Count > before)
-        {
-            return true;
-        }
-        return false;
+        return _intervals.Count > before;
     }
 
     public HashSet<string> GetAllSymbols() => [.. _symbols];
@@ -99,104 +65,37 @@ internal sealed class StreamState
         LastConnectionTime = null;
     }
 
-    public bool NeedsReconnection()
-    {
-        if (LastConnectionTime == null)
-        {
-            return true;
-        }
-        return (DateTime.UtcNow - LastConnectionTime.Value) > _reconnectInterval;
-    }
-}
-
-internal sealed class TaskState
-{
-    private readonly ConcurrentDictionary<string, TaskInfo> _runtimeTasks = new();
-    private readonly ConcurrentDictionary<string, byte> _taskIds = new();
-
-    public bool TryAddTask(TaskInfo taskInfo)
-    {
-        if (_runtimeTasks.TryAdd(taskInfo.Id, taskInfo))
-        {
-            _taskIds.TryAdd(taskInfo.Id, 0);
-            return true;
-        }
-        return false;
-    }
-
-    public bool TryRemoveTask(string taskId, out TaskInfo? taskInfo)
-    {
-        if (_runtimeTasks.TryRemove(taskId, out taskInfo))
-        {
-            _taskIds.TryRemove(taskId, out _);
-            return true;
-        }
-        return false;
-    }
-
-    public bool TryGetTask(string taskId, out TaskInfo? taskInfo) =>
-        _runtimeTasks.TryGetValue(taskId, out taskInfo);
-
-    public TaskInfo[] GetAllTasks() => [.. _runtimeTasks.Values];
-
-    public TaskInfo[] GetTasksByCategory(TaskCategory category) =>
-        _runtimeTasks.Values.Where(t => t.Category == category).ToArray();
-
-}
-
-internal sealed class StrategyState
-{
-    private readonly ConcurrentDictionary<string, Strategy> _strategies = new();
-
-    public bool AddOrUpdateStrategy(string key, Strategy value)
-    {
-        var isNew = !_strategies.ContainsKey(key);
-        _strategies.AddOrUpdate(key, value, (_, _) => value);
-        return isNew;
-    }
-
-    public bool TryRemoveStrategy(string key, out Strategy? value)
-    {
-        var result = _strategies.TryRemove(key, out value);
-        return result;
-    }
-
-    public bool TryGetStrategy(string key, out Strategy? value) =>
-        _strategies.TryGetValue(key, out value);
-
-    public Strategy? GetStrategyById(string strategyId) =>
-        _strategies.TryGetValue(strategyId, out var strategy) ? strategy : null;
-
-    public Strategy[] GetAllStrategies() => [.. _strategies.Values];
-
+    public bool NeedsReconnection() =>
+        LastConnectionTime == null || (DateTime.UtcNow - LastConnectionTime.Value) > _reconnectInterval;
 }
 
 public class GlobalState
 {
-    private readonly AlertState _alerts;
-    private readonly KlineState _klines;
+    private readonly ConcurrentStateBase<string, Alert> _alerts;
+    private readonly ConcurrentStateBase<string, IBinanceKline> _klines;
+    private readonly ConcurrentStateBase<string, Strategy> _strategies;
+    private readonly ConcurrentStateBase<string, TaskInfo> _taskState;
     private readonly StreamState _stream;
-    private readonly TaskState _taskState;
-    private readonly StrategyState _strategies;
 
     public GlobalState(ILogger<GlobalState> logger)
     {
-        _alerts = new AlertState();
-        _klines = new KlineState();
+        _alerts = new ConcurrentStateBase<string, Alert>();
+        _klines = new ConcurrentStateBase<string, IBinanceKline>();
+        _strategies = new ConcurrentStateBase<string, Strategy>();
         _stream = new StreamState();
-        _taskState = new TaskState();
-        _strategies = new StrategyState();
+        _taskState = new ConcurrentStateBase<string, TaskInfo>();
         logger.LogInformation("Global state initialized.");
     }
 
     #region Delegates to Sub-States
     public virtual bool AddOrUpdateAlert(string id, Alert alert) => _alerts.AddOrUpdate(id, alert);
     public virtual bool TryGetAlert(string id, out Alert? alert) => _alerts.TryGetValue(id, out alert);
-    public virtual bool TryRemoveAlert(string id) => _alerts.TryRemove(id);
+    public virtual bool TryRemoveAlert(string id) => _alerts.TryRemove(id, out _);
     public virtual void ClearAlerts() => _alerts.Clear();
+
     public virtual void AddOrUpdateLastKline(string key, IBinanceKline kline) => _klines.AddOrUpdate(key, kline);
     public virtual bool TryGetLastKline(string key, out IBinanceKline? kline) => _klines.TryGetValue(key, out kline);
-    public virtual bool TryRemoveLastKline(string key) => _klines.TryRemove(key);
+    public virtual bool TryRemoveLastKline(string key) => _klines.TryRemove(key, out _);
     public virtual void ClearLastKlines() => _klines.Clear();
 
     public virtual DateTime? LastConnectionTime { get => _stream.LastConnectionTime; set => _stream.LastConnectionTime = value; }
@@ -208,15 +107,14 @@ public class GlobalState
     public virtual void ClearStreamState() => _stream.ClearStreamState();
     public virtual bool NeedsReconnection() => _stream.NeedsReconnection();
 
-    public virtual bool TryAddTask(TaskInfo taskInfo) => _taskState.TryAddTask(taskInfo);
-    public virtual bool TryRemoveTask(string taskId, out TaskInfo? taskInfo) => _taskState.TryRemoveTask(taskId, out taskInfo);
-    public virtual bool TryGetTask(string taskId, out TaskInfo? taskInfo) => _taskState.TryGetTask(taskId, out taskInfo);
-    public virtual TaskInfo[] GetAllTasks() => _taskState.GetAllTasks();
+    public virtual bool TryAddTask(TaskInfo taskInfo) => _taskState.TryAdd(taskInfo.Id, taskInfo);
+    public virtual bool TryRemoveTask(string taskId, out TaskInfo? taskInfo) => _taskState.TryRemove(taskId, out taskInfo);
+    public virtual bool TryGetTask(string taskId, out TaskInfo? taskInfo) => _taskState.TryGetValue(taskId, out taskInfo);
+    public virtual TaskInfo[] GetAllTasks() => _taskState.Values();
 
-    public virtual bool AddOrUpdateStrategy(string key, Strategy value) => _strategies.AddOrUpdateStrategy(key, value);
-    public virtual bool TryRemoveStrategy(string key, out Strategy? value) => _strategies.TryRemoveStrategy(key, out value);
-    public virtual bool TryGetStrategy(string key, out Strategy? value) => _strategies.TryGetStrategy(key, out value);
-    public virtual Strategy[] GetAllStrategies() => _strategies.GetAllStrategies();
-
+    public virtual bool AddOrUpdateStrategy(string key, Strategy value) => _strategies.AddOrUpdate(key, value);
+    public virtual bool TryRemoveStrategy(string key, out Strategy? value) => _strategies.TryRemove(key, out value);
+    public virtual bool TryGetStrategy(string key, out Strategy? value) => _strategies.TryGetValue(key, out value);
+    public virtual Strategy[] GetAllStrategies() => _strategies.Values();
     #endregion
 }
