@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using MediatR;
-using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.Application.Commands;
 using Trading.Domain.Entities;
@@ -16,15 +15,13 @@ public class CreateStrategyCommandHandlerTests
 {
     private readonly Mock<IStrategyRepository> _mockStrategyRepository;
     private readonly Mock<IMediator> _mockMediator;
-    private readonly Mock<ILogger<CreateStrategyCommandHandler>> _mockLogger;
     private readonly CreateStrategyCommandHandler _handler;
 
     public CreateStrategyCommandHandlerTests()
     {
         _mockStrategyRepository = new Mock<IStrategyRepository>();
         _mockMediator = new Mock<IMediator>();
-        _mockLogger = new Mock<ILogger<CreateStrategyCommandHandler>>();
-        _handler = new CreateStrategyCommandHandler(_mockStrategyRepository.Object, _mockLogger.Object);
+        _handler = new CreateStrategyCommandHandler(_mockStrategyRepository.Object);
     }
 
     [Fact]

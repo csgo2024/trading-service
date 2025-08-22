@@ -34,7 +34,7 @@ public partial class CreateAlertCommandHandler : IRequestHandler<CreateAlertComm
             request.Interval,
             WhitespaceRegex().Replace(request.Expression, "")
         );
-        await _alertRepository.AddAsync(alert, cancellationToken);
+        alert = await _alertRepository.AddAsync(alert, cancellationToken);
         return alert;
     }
 }

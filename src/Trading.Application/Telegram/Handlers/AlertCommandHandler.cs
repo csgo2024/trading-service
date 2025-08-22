@@ -117,7 +117,8 @@ public class AlertCommandHandler : ICommandHandler
         var command = JsonSerializer.Deserialize<CreateAlertCommand>(json, options)
                       ?? throw new InvalidOperationException("Failed to parse alert parameters");
 
-        await _mediator.Send(command);
+        var entity = await _mediator.Send(command);
+        _logger.LogInformation("Alert {id} created successfully.", entity?.Id);
     }
 
     private async Task HandleDelete(string id)
