@@ -111,7 +111,8 @@ public class StrategyCommandHandler : ICommandHandler
 
         var command = JsonSerializer.Deserialize<CreateStrategyCommand>(json, options)
                       ?? throw new InvalidOperationException("Failed to parse strategy parameters");
-        await _mediator.Send(command);
+        var entity = await _mediator.Send(command);
+        _logger.LogInformation("Strategy {id} created successfully.", entity?.Id);
     }
 
     private async Task HandleDelete(string id)
