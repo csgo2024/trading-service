@@ -102,7 +102,8 @@ public class AlertNotificationService : IAlertNotificationService
                 ReplyMarkup = new InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton.WithCallbackData("Pause", $"alert_pause_{alert.Id}")
+                        InlineKeyboardButton.WithCallbackData("⏸️ Pause", $"alert_pause_{alert.Id}"),
+                        InlineKeyboardButton.WithCallbackData("🗑️ Delete", $"alert_delete_{alert.Id}")
                     ]
                 ])
             };
