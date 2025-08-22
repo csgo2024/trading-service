@@ -40,12 +40,14 @@ public class KlineStreamManager : IKlineStreamManager
             return false;
         }
 
-        await CloseExistingSubscription();
+        // 只在有新 symbol/interval 时才触发订阅
+        if (!HasNewSymbolsOrIntervals(symbols, intervals, out var mergedSymbols, out var mergedIntervals))
+        {
+            _logger.LogDebug("No new symbols/intervals to subscribe. Skipping subscription.");
+            return true;
+        }
 
-        var mergedSymbols = _globalState.GetAllSymbols();
-        mergedSymbols.UnionWith(symbols);
-        var mergedIntervals = _globalState.GetAllIntervals();
-        mergedIntervals.UnionWith(intervals);
+        await CloseExistingSubscription();
 
         var result = await _usdFutureSocketClient.ExchangeData.SubscribeToKlineUpdatesAsync(
             mergedSymbols,
@@ -71,16 +73,36 @@ public class KlineStreamManager : IKlineStreamManager
         return true;
     }
 
+    private bool HasNewSymbolsOrIntervals(
+        HashSet<string> symbols,
+        HashSet<string> intervals,
+        out HashSet<string> mergedSymbols,
+        out HashSet<string> mergedIntervals)
+    {
+        var existingSymbols = _globalState.GetAllSymbols();
+        var existingIntervals = _globalState.GetAllIntervals();
+
+        var newSymbols = symbols.Except(existingSymbols).ToHashSet();
+        var newIntervals = intervals.Except(existingIntervals).ToHashSet();
+
+        // 合并后的最终集合
+        mergedSymbols = [.. existingSymbols];
+        mergedSymbols.UnionWith(newSymbols);
+
+        mergedIntervals = [.. existingIntervals];
+        mergedIntervals.UnionWith(newIntervals);
+
+        // 只要有新增就返回 true
+        return newSymbols.Count > 0 || newIntervals.Count > 0;
+    }
     private void HandlePriceUpdate(DataEvent<IBinanceStreamKlineData> data)
     {
         if (!data.Data.Data.Final)
         {
             return;
         }
-
-        Task.Run(() => _mediator.Publish(
-            new KlineClosedEvent(data.Data.Symbol, data.Data.Data.Interval, data.Data.Data)
-        ));
+        // fire-and-forget Task
+        _ = _mediator.Publish(new KlineClosedEvent(data.Data.Symbol, data.Data.Data.Interval, data.Data.Data));
     }
 
     private async Task CloseExistingSubscription()
