@@ -312,6 +312,7 @@ public class BottomBuyExecutorTests
             Symbol = "BTCUSDT",
             AccountType = AccountType.Spot,
             StrategyType = StrategyType.BottomBuy,
+            Interval = "1d",
             Amount = 1000,
             Volatility = 0.01m,
             HasOpenOrder = hasOpenOrder,

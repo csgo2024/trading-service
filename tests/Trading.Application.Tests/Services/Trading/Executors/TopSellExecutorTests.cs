@@ -313,6 +313,7 @@ public class TopSellExecutorTests
             Symbol = "BTCUSDT",
             AccountType = AccountType.Future,
             StrategyType = StrategyType.TopSell,
+            Interval = "1d",
             Amount = 1000,
             Volatility = 0.01m,
             HasOpenOrder = hasOpenOrder,
