@@ -30,7 +30,7 @@ public class KlineStreamManager : IKlineStreamManager
         _mediator = mediator;
         _usdFutureSocketClient = usdFutureSocketClient;
         _globalState = globalState;
-        _logger.LogInformation("KlineStreamManager created : {HashCode}", GetHashCode());
+        _logger.LogDebug("KlineStreamManager created : {HashCode}", GetHashCode());
     }
 
     public async Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct)

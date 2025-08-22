@@ -92,7 +92,7 @@ public class GlobalState
             WriteIndented = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
-        logger.LogInformation("Global state initialized.");
+        logger.LogDebug("GlobalState created : {HashCode}", GetHashCode());
     }
 
     #region Delegates to Sub-States

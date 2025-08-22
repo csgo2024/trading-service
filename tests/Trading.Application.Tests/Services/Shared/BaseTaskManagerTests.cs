@@ -42,6 +42,7 @@ public class BaseTaskManagerTests
         Assert.True(executed);
         Assert.NotNull(taskInfo);
         Assert.Equal(taskId, taskInfo.Id);
+        _mockLogger.VerifyLoggingOnce(LogLevel.Debug, $"Task started: Category={TaskCategory.Strategy}, TaskId={taskId}");
         await taskManager.StopAsync();
         await taskManager.DisposeAsync();
     }
@@ -80,6 +81,7 @@ public class BaseTaskManagerTests
 
         // Assert
         Assert.Equal(1, executionCount);
+        _mockLogger.VerifyLoggingOnce(LogLevel.Debug, $"Task started: Category={TaskCategory.Strategy}, TaskId={taskId}");
         await taskManager.StopAsync();
         await taskManager.DisposeAsync();
     }
@@ -107,7 +109,7 @@ public class BaseTaskManagerTests
 
         // Assert
         Assert.Null(taskInfo);
-        _mockLogger.VerifyLoggingOnce(LogLevel.Information, $"Task stopped: Category={TaskCategory.Strategy}, TaskId={taskId}");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Debug, $"Task stopped: Category={TaskCategory.Strategy}, TaskId={taskId}");
         await taskManager.StopAsync();
         await taskManager.DisposeAsync();
     }
@@ -150,6 +152,7 @@ public class BaseTaskManagerTests
         foreach (var taskId in taskIds)
         {
             _globalState.TryGetTask(taskId, out var taskInfo);
+            _mockLogger.VerifyLoggingOnce(LogLevel.Debug, $"Task stopped: Category={TaskCategory.Strategy}, TaskId={taskId}");
             Assert.Null(taskInfo);
         }
         Assert.Equal(0, executingTasks);
