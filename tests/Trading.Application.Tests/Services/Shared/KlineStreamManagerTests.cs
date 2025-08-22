@@ -126,4 +126,34 @@ public class KlineStreamManagerTests
         Assert.False(result);
         _mockLogger.VerifyLoggingOnce(LogLevel.Error, "");
     }
+
+    [Fact]
+    public async Task SubscribeSymbols_WhenNoNewSymbolsOrIntervals_ShouldSkipResubscription()
+    {
+        _mockState.Setup(x => x.GetAllSymbols()).Returns(new HashSet<string> { "BTCUSDT" });
+        _mockState.Setup(x => x.GetAllIntervals()).Returns(new HashSet<string> { "5m" });
+
+        using var cts = new CancellationTokenSource();
+        var result = await _manager.SubscribeSymbols(new HashSet<string> { "BTCUSDT" }, new HashSet<string> { "5m" }, cts.Token);
+
+        Assert.True(result);
+        _mockExchangeData.Verify(
+            x => x.SubscribeToKlineUpdatesAsync(
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<KlineInterval>>(),
+                It.IsAny<Action<DataEvent<IBinanceStreamKlineData>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public void NeedsReconnection_ShouldReturnGlobalStateValue()
+    {
+        _mockState.Setup(s => s.NeedsReconnection()).Returns(true);
+        Assert.True(_manager.NeedsReconnection());
+
+        _mockState.Setup(s => s.NeedsReconnection()).Returns(false);
+        Assert.False(_manager.NeedsReconnection());
+    }
 }
