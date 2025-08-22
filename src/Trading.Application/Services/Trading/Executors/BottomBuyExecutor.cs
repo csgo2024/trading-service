@@ -26,6 +26,14 @@ public class BottomBuyExecutor : BaseExecutor
     }
     public override async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
+        if (strategy.Interval != "1d")
+        {
+            _logger.LogErrorWithAlert("[{AccountType}-{Symbol}] BottomBuy strategy requires 1d interval, but got {Interval}.",
+                                      strategy.AccountType,
+                                      strategy.Symbol,
+                                      strategy.Interval);
+            return;
+        }
         var currentDate = DateTime.UtcNow.Date;
         if (strategy.OrderPlacedTime.HasValue && strategy.OrderPlacedTime.Value.Date != currentDate)
         {

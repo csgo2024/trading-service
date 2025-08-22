@@ -40,5 +40,12 @@ public class CreateStrategyCommand : IRequest<Strategy>, IValidatableObject
                 yield return new ValidationResult("Spot account type is not supported for TopSell or CloseSell strategy.", [nameof(AccountType)]);
             }
         }
+        if (StrategyType == StrategyType.BottomBuy || StrategyType == StrategyType.TopSell)
+        {
+            if (string.IsNullOrWhiteSpace(Interval) || Interval != "1d")
+            {
+                yield return new ValidationResult("Interval must be '1d' for BottomBuy or TopSell strategy.", [nameof(Interval)]);
+            }
+        }
     }
 }

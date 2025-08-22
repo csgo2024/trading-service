@@ -77,6 +77,7 @@ public class StrategyControllerTests : IClassFixture<TradingApiFixture>
             Volatility = 0.15m,
             AccountType = AccountType.Spot,
             StrategyType = StrategyType.BottomBuy,
+            Interval = "1d",
             StopLossExpression = "low < 200",
             Leverage = 1
         };
