@@ -81,6 +81,7 @@ stages:
   - deployment: build_image
     displayName: 'Build Docker Image'
     environment: 'production'
+    condition: false # 禁用 build docker image as it runs too long.
     dependsOn: semver
     strategy:
       runOnce:
