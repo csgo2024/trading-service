@@ -143,7 +143,15 @@ public class TelegramLogger : ILogger
             ? scope.Title
             : $"{GetEmoji(logLevel)} {logLevel}";
 
-        message.AppendLine($"<b>{title}</b> ({DateTime.UtcNow.AddHours(8):yyyy-MM-dd HH:mm:ss})");
+        if (title.Length > 20)
+        {
+            message.AppendLine($"<b>{title}</b>");
+            message.AppendLine($"<pre>Now: {DateTime.UtcNow.AddHours(8):yyyy-MM-dd HH:mm:ss}       </pre>");
+        }
+        else
+        {
+            message.AppendLine($"<b>{title}</b> ({DateTime.UtcNow.AddHours(8):MM-dd HH:mm:ss})");
+        }
 
         if (_loggerOptions.Value.IncludeCategory)
         {

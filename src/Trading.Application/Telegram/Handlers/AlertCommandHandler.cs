@@ -76,9 +76,9 @@ public class AlertCommandHandler : ICommandHandler
         foreach (var alert in alerts)
         {
             var (emoji, status) = alert.Status.GetStatusInfo();
-            var text = $"""
-            {emoji} [{alert.Symbol}-{alert.Interval}]:{status}
-            Expression: {alert.Expression}
+            var text = $$"""
+            Status: {{status}} {{emoji}}
+            Expression: {{alert.Expression}}
             """;
             var buttons = alert.Status switch
             {
@@ -90,7 +90,7 @@ public class AlertCommandHandler : ICommandHandler
 
             var telegramScope = new TelegramLoggerScope
             {
-                Title = "⏰ Alarm Status",
+                Title = $"⏰ {alert.Symbol}-{alert.Interval} Alert",
                 ReplyMarkup = new InlineKeyboardMarkup([buttons])
             };
 
