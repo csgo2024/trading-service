@@ -46,12 +46,25 @@ jobs:
         with:
           fetch-depth: 0 
 
-      - name: Push to Azure DevOps
+      - name: Push to Azure DevOps (feature branch)
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
           git remote add azure "https://${{ secrets.AZURE_DEVOPS_PAT }}@dev.azure.com/${{ secrets.AZURE_DEVOPS_ORG }}/${{ secrets.AZURE_DEVOPS_PROJECT }}/_git/${{ secrets.AZURE_DEVOPS_REPO }}"
-          git push azure main --force
+          git push azure HEAD:refs/heads/ci-sync-${{ github.run_number }} --force
+
+      - name: Create Pull Request in Azure DevOps
+        run: |
+          curl -u :${{ secrets.AZURE_DEVOPS_PAT }} \
+            -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "sourceRefName": "refs/heads/ci-sync-${{ github.run_number }}",
+              "targetRefName": "refs/heads/main",
+              "title": "Sync from GitHub run #${{ github.run_number }}",
+              "description": "Automated PR created by GitHub Actions"
+            }' \
+            "https://dev.azure.com/${{ secrets.AZURE_DEVOPS_ORG }}/${{ secrets.AZURE_DEVOPS_PROJECT }}/_apis/git/repositories/${{ secrets.AZURE_DEVOPS_REPO }}/pullrequests?api-version=7.1-preview.1"
 
   docker-publish:
     name: 🐳 Build and Push Docker Image
