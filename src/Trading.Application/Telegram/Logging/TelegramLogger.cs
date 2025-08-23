@@ -143,7 +143,7 @@ public class TelegramLogger : ILogger
             ? scope.Title
             : $"{GetEmoji(logLevel)} {logLevel}";
 
-        if (title.Length > 18)
+        if (title.Length > 19)
         {
             message.AppendLine($"<b>{title}</b>");
         }

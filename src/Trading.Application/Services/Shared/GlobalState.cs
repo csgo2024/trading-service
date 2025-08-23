@@ -38,7 +38,7 @@ internal sealed class StreamState
 {
     private readonly HashSet<string> _symbols = new();
     private readonly HashSet<string> _intervals = new();
-    private readonly TimeSpan _reconnectInterval = TimeSpan.FromHours(12);
+    private readonly TimeSpan _reconnectInterval = TimeSpan.FromHours(23);
 
     public DateTime? LastConnectionTime { get; set; }
     public UpdateSubscription? CurrentSubscription { get; set; }
