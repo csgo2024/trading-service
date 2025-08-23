@@ -132,11 +132,11 @@ public class GlobalState
     {
         var snapshot = new
         {
-            Alerts = _alerts.Values().Select(x => new { x.Id, x.Expression, x.Interval }),
-            Strategies = _strategies.Values().Select(x => new { x.Id, Name = $"{x.Interval}-{x.AccountType}-{x.StrategyType}" }),
-            Symbols = _stream.GetAllSymbols(),
-            Intervals = _stream.GetAllIntervals(),
-            Tasks = _taskState.Values().Select(x => new { x.Id, x.Category }),
+            Alerts = _alerts.Values().Select(x => $"{x.Symbol}-{x.Interval}"),
+            Strategies = _strategies.Values().Select(x => $"{x.Symbol}-{x.Interval}-{x.AccountType}-{x.StrategyType}"),
+            Symbols = string.Join(", ", _stream.GetAllSymbols()),
+            Intervals = string.Join(", ", _stream.GetAllIntervals()),
+            Tasks = _taskState.Values().Select(x => $"{x.Category.ToString().ToLower()}-{x.Id}"),
             ConnectTime = _stream.LastConnectionTime.HasValue ? _stream.LastConnectionTime.Value.AddHours(8).ToString("yyyy-MM-dd HH:mm:ss") : "N/A",
         };
         return JsonSerializer.Serialize(snapshot, _options);
