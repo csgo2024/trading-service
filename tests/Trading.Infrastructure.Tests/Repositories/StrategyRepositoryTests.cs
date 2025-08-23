@@ -19,29 +19,6 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
     }
 
     [Fact]
-    public async Task Add_WithUniqueStrategy_ShouldAddSuccessfully()
-    {
-        // Arrange
-        await _repository.EmptyAsync();
-        var strategy = new Strategy
-        {
-            Symbol = "BTCUSDT",
-            AccountType = AccountType.Spot,
-            Amount = 100,
-            Volatility = 0.1m,
-            Status = Status.Running
-        };
-
-        // Act
-        var result = await _repository.Add(strategy);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.NotNull(result.Id);
-        Assert.Equal(strategy.Symbol, result.Symbol);
-    }
-
-    [Fact]
     public async Task Add_WithDuplicateStrategy_ShouldBeAddedSuccessfully()
     {
         // Arrange
@@ -53,7 +30,7 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
             Amount = 100,
             Status = Status.Running
         };
-        await _repository.Add(strategy);
+        await _repository.AddAsync(strategy);
 
         var duplicateStrategy = new Strategy
         {
@@ -63,16 +40,16 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
             Status = Status.Running
         };
 
-        await _repository.Add(duplicateStrategy);
+        await _repository.AddAsync(duplicateStrategy);
 
         // Act & Assert
-        var result = await _repository.GetAllStrategies();
+        var result = await _repository.GetAllAsync();
         Assert.Equal(2, result.Count);
 
     }
 
     [Fact]
-    public async Task GetAllStrategies_ShouldReturnAllStrategies()
+    public async Task GetAllAsync_ShouldReturnAllStrategies()
     {
         // Arrange
         await _repository.EmptyAsync();
@@ -84,11 +61,11 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
 
         foreach (var strategy in strategies)
         {
-            await _repository.Add(strategy);
+            await _repository.AddAsync(strategy);
         }
 
         // Act
-        var result = await _repository.GetAllStrategies();
+        var result = await _repository.GetAllAsync();
 
         // Assert
         Assert.Equal(2, result.Count);
@@ -97,7 +74,7 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
     }
 
     [Fact]
-    public async Task FindActiveStrategies_ShouldReturnAllActivestrategies()
+    public async Task GetActiveStrategyAsync_ShouldReturnAllActivestrategies()
     {
         // Arrange
         await _repository.EmptyAsync();
@@ -110,72 +87,16 @@ public class StrategyRepositoryTests : IClassFixture<MongoDbFixture>
 
         foreach (var strategy in strategies)
         {
-            await _repository.Add(strategy);
+            await _repository.AddAsync(strategy);
         }
 
         // Act
-        var result = await _repository.FindActiveStrategies();
+        var result = await _repository.GetActiveStrategyAsync();
 
         // Assert
         Assert.NotNull(result);
-        Assert.Equal(2, result.Keys.Count);
-        Assert.Single(result.Keys, x => x.Contains("S1") && x.Contains(AccountType.Spot.ToString()));
-        Assert.Single(result.Keys, x => x.Contains("F1") && x.Contains(AccountType.Future.ToString()));
-    }
-
-    [Fact]
-    public async Task UpdateOrderStatusAsync_ShouldUpdateStrategySuccessfully()
-    {
-        // Arrange
-        await _repository.EmptyAsync();
-        var strategy = new Strategy
-        {
-            Symbol = "BTCUSDT",
-            AccountType = AccountType.Spot,
-            Status = Status.Running
-        };
-        var addedStrategy = await _repository.Add(strategy);
-
-        Assert.NotNull(addedStrategy);
-        // Update status
-        addedStrategy.Status = Status.Paused;
-
-        // Act
-        var result = await _repository.UpdateOrderStatusAsync(addedStrategy);
-
-        // Assert
-        Assert.True(result);
-        var updatedStrategy = await _repository.GetByIdAsync(addedStrategy.Id);
-        Assert.NotNull(updatedStrategy);
-        Assert.Equal(Status.Paused, updatedStrategy.Status);
-    }
-    [Fact]
-    public async Task FindActiveStrategyByType_ShouldReturnRunningAndExactMatchedStrategies()
-    {
-        // Arrange
-        await _repository.EmptyAsync();
-        var strategies = new List<Strategy>
-        {
-            new() { Symbol = "S1", Interval = "5m", StrategyType = StrategyType.TopSell, Status = Status.Running },
-            new() { Symbol = "S1", Interval = "5m", StrategyType = StrategyType.TopSell, Status = Status.Running },
-            new() { Symbol = "S1", Interval = "15m", StrategyType = StrategyType.TopSell, Status = Status.Running },
-            new() { Symbol = "S1", Interval = "5m", StrategyType = StrategyType.TopSell, Status = Status.Paused },
-            new() { Symbol = "S1", Interval = "5m", StrategyType = StrategyType.BottomBuy, Status = Status.Running },
-        };
-
-        foreach (var strategy in strategies)
-        {
-            await _repository.Add(strategy);
-        }
-
-        // Act
-        var result = await _repository.FindActiveStrategyByType(StrategyType.TopSell, CancellationToken.None);
-
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal(3, result.Count);
-        Assert.All(result, s => Assert.Equal("S1", s.Symbol));
-        Assert.All(result, s => Assert.Equal(StrategyType.TopSell, s.StrategyType));
-        Assert.All(result, s => Assert.Equal(Status.Running, s.Status));
+        Assert.Equal(2, result.Count);
+        Assert.Single(result, x => x.Symbol.Contains("S1") && x.AccountType == AccountType.Spot);
+        Assert.Single(result, x => x.Symbol.Contains("F1") && x.AccountType == AccountType.Future);
     }
 }

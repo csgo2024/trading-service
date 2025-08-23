@@ -1,6 +1,7 @@
 using Binance.Net.Enums;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
 using Trading.Common.JavaScript;
@@ -18,7 +19,7 @@ public class TopSellExecutorTests
     private readonly Mock<IAccountProcessor> _mockAccountProcessor;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
-    private readonly Mock<IStrategyStateManager> _mockStrategyStateManager;
+    private readonly Mock<GlobalState> _mockState;
     private readonly TopSellExecutor _executor;
 
     public TopSellExecutorTests()
@@ -28,12 +29,12 @@ public class TopSellExecutorTests
         _mockAccountProcessor = new Mock<IAccountProcessor>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
-        _mockStrategyStateManager = new Mock<IStrategyStateManager>();
+        _mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
         _executor = new TopSellExecutor(_mockLogger.Object,
                                         _mockStrategyRepository.Object,
                                         _mockJavaScriptEvaluator.Object,
                                         _mockAccountProcessorFactory.Object,
-                                        _mockStrategyStateManager.Object);
+                                        _mockState.Object);
     }
 
     [Fact]
@@ -312,6 +313,7 @@ public class TopSellExecutorTests
             Symbol = "BTCUSDT",
             AccountType = AccountType.Future,
             StrategyType = StrategyType.TopSell,
+            Interval = "1d",
             Amount = 1000,
             Volatility = 0.01m,
             HasOpenOrder = hasOpenOrder,

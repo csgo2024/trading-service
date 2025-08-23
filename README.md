@@ -14,6 +14,7 @@
 | 命令 | 说明 | 子命令 |
 |------|------|--------|
 | `/help` | 显示帮助信息 | - |
+| `/debug` | 查看状态 | - |
 | `/strategy` | 策略管理 | create, delete, pause, resume |
 | `/alert` | 警报管理 | create, delete, empty, pause, resume |
 

@@ -2,14 +2,15 @@ using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Alerts;
+using Trading.Application.IntegrationEvents.Events;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
-using Trading.Common.Enums;
 using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
 using AccountType = Trading.Common.Enums.AccountType;
+using StrategyType = Trading.Common.Enums.StrategyType;
 
 namespace Trading.Application.Tests.Services.Trading.Executors;
 
@@ -20,7 +21,7 @@ public class CloseSellExecutorTests
     private readonly Mock<IAccountProcessorFactory> _mockAccountProcessorFactory;
     private readonly Mock<IAccountProcessor> _mockAccountProcessor;
     private readonly Mock<JavaScriptEvaluator> _mockJavaScriptEvaluator;
-    private readonly Mock<IStrategyStateManager> _mockStrategyStateManager;
+    private readonly Mock<GlobalState> _mockState;
     private readonly CloseSellExecutor _executor;
     private readonly CancellationToken _ct;
 
@@ -31,17 +32,16 @@ public class CloseSellExecutorTests
         _mockAccountProcessorFactory = new Mock<IAccountProcessorFactory>();
         _mockAccountProcessor = new Mock<IAccountProcessor>();
         _mockJavaScriptEvaluator = new Mock<JavaScriptEvaluator>(Mock.Of<ILogger<JavaScriptEvaluator>>());
-        _mockStrategyStateManager = new Mock<IStrategyStateManager>();
+        _mockState = new Mock<GlobalState>(Mock.Of<ILogger<GlobalState>>());
         _executor = new CloseSellExecutor(
             _mockLogger.Object,
             _mockAccountProcessorFactory.Object,
             _mockStrategyRepository.Object,
             _mockJavaScriptEvaluator.Object,
-            _mockStrategyStateManager.Object
+            _mockState.Object
         );
         _ct = CancellationToken.None;
     }
-
     private static KlineClosedEvent SetupKlineCloseEvent()
     {
         var symbol = "BTCUSDT";
@@ -51,72 +51,21 @@ public class CloseSellExecutorTests
             k.ClosePrice == 41000m &&
             k.HighPrice == 42000m &&
             k.LowPrice == 39000m);
-        var notification = new KlineClosedEvent(symbol, interval, kline);
-        return notification;
+        var @event = new KlineClosedEvent(symbol, interval, kline);
+        return @event;
     }
 
     [Fact]
-    public async Task Handle_WithNoStrategiesFound_ShouldNotProcessAnything()
+    public void StrategyType_ShouldBeCloseSell()
     {
-        // Arrange
-        var notification = SetupKlineCloseEvent();
-
-        _mockStrategyRepository.Setup(x => x.FindActiveStrategyByType(
-            It.IsAny<StrategyType>(),
-            It.IsAny<CancellationToken>()
-        )).ReturnsAsync([]);
-
-        // Act
-        await _executor.Handle(notification, _ct);
-
-        // Assert
-        _mockAccountProcessorFactory.Verify(x => x.GetAccountProcessor(It.IsAny<AccountType>()), Times.Never);
-        _mockStrategyRepository.Verify(x => x.UpdateAsync(
-            It.IsAny<string>(),
-            It.IsAny<Strategy>(),
-            It.IsAny<CancellationToken>()
-        ), Times.Never);
+        Assert.Equal(StrategyType.CloseSell, _executor.StrategyType);
     }
 
     [Fact]
-    public async Task Handle_WithSpotAccountType_ShouldSkipProcessing()
+    public async Task HandleKlineClosedEvent_WhenTypeIsSpot_ShouldDoNothing()
     {
         // Arrange
-        var notification = SetupKlineCloseEvent();
-
-        var strategy = new Strategy
-        {
-            Id = "test-id",
-            Symbol = "BTCUSDT",
-            AccountType = AccountType.Spot,
-            StrategyType = StrategyType.CloseSell,
-            Interval = "1d"
-        };
-        _mockStrategyStateManager
-            .Setup(x => x.GetState(It.IsAny<StrategyType>()))
-            .Returns(new Dictionary<string, Strategy>
-            {
-                { strategy.Id, strategy }
-            });
-        _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
-            .Returns(_mockAccountProcessor.Object);
-
-        // Act
-        await _executor.Handle(notification, _ct);
-
-        // Assert
-        _mockAccountProcessor.Verify(x => x.GetSymbolFilterData(
-            It.IsAny<Strategy>(),
-            It.IsAny<CancellationToken>()
-        ), Times.Never);
-    }
-
-    [Fact]
-    public async Task Handle_WithValidStrategy_ShouldProcessAndUpdateStrategy()
-    {
-        // Arrange
-        var notification = SetupKlineCloseEvent();
-
+        var klineEvent = SetupKlineCloseEvent();
         var strategy = new Strategy
         {
             Id = "test-id",
@@ -124,100 +73,12 @@ public class CloseSellExecutorTests
             Volatility = 0.01m,
             Amount = 1000,
             HasOpenOrder = false,
-            AccountType = AccountType.Future,
             StrategyType = StrategyType.CloseSell,
+            AccountType = AccountType.Spot,
             Interval = "1d"
         };
-
-        _mockStrategyStateManager
-            .Setup(x => x.GetState(It.IsAny<StrategyType>()))
-            .Returns(new Dictionary<string, Strategy>
-            {
-                { strategy.Id, strategy }
-            });
-
-        _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
-            .Returns(_mockAccountProcessor.Object);
-
-        _mockAccountProcessor.SetupSuccessfulSymbolFilter();
-        _mockAccountProcessor.SetupSuccessfulPlaceShortOrderAsync(12345L);
-
         // Act
-        await _executor.Handle(notification, _ct);
-
-        // Assert
-        _mockStrategyRepository.Verify(x => x.UpdateAsync(
-            It.IsAny<string>(),
-            It.IsAny<Strategy>(),
-            It.IsAny<CancellationToken>()
-        ), Times.Once);
-
-        // CloseSell entry price should be higher than close price
-        Assert.True(strategy.TargetPrice > 41000m);
-    }
-
-    [Fact]
-    public async Task Handle_WithNullAccountProcessor_ShouldSkipProcessing()
-    {
-        // Arrange
-        var notification = SetupKlineCloseEvent();
-
-        var strategy = new Strategy
-        {
-            Id = "test-id",
-            AccountType = AccountType.Future,
-            StrategyType = StrategyType.CloseSell,
-        };
-
-        _mockStrategyRepository.Setup(x => x.FindActiveStrategyByType(
-            It.IsAny<StrategyType>(),
-            It.IsAny<CancellationToken>()
-        )).ReturnsAsync([strategy]);
-
-        _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
-            .Returns(null as IAccountProcessor);
-
-        // Act
-        await _executor.Handle(notification, _ct);
-
-        // Assert
-        _mockAccountProcessor.Verify(x => x.GetSymbolFilterData(
-            It.IsAny<Strategy>(),
-            It.IsAny<CancellationToken>()
-        ), Times.Never);
-        _mockStrategyRepository.Verify(x => x.UpdateAsync(
-            It.IsAny<string>(),
-            It.IsAny<Strategy>(),
-            It.IsAny<CancellationToken>()
-        ), Times.Never);
-    }
-
-    [Fact]
-    public async Task Handle_WithExistingOrder_ShouldNotPlaceNewOrder()
-    {
-        // Arrange
-        var notification = SetupKlineCloseEvent();
-
-        var strategy = new Strategy
-        {
-            Id = "test-id",
-            HasOpenOrder = true,
-            AccountType = AccountType.Future,
-            StrategyType = StrategyType.CloseSell,
-        };
-
-        _mockStrategyRepository.Setup(x => x.FindActiveStrategyByType(
-            It.IsAny<StrategyType>(),
-            It.IsAny<CancellationToken>()
-        )).ReturnsAsync([strategy]);
-
-        _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
-            .Returns(_mockAccountProcessor.Object);
-
-        _mockAccountProcessor.SetupSuccessfulSymbolFilter();
-
-        // Act
-        await _executor.Handle(notification, _ct);
+        await _executor.HandleKlineClosedEvent(_mockAccountProcessor.Object, strategy, klineEvent, _ct);
 
         // Assert
         _mockAccountProcessor.Verify(x => x.PlaceShortOrderAsync(
@@ -225,7 +86,132 @@ public class CloseSellExecutorTests
             It.IsAny<decimal>(),
             It.IsAny<decimal>(),
             It.IsAny<TimeInForce>(),
-            It.IsAny<CancellationToken>()
-        ), Times.Never);
+            It.IsAny<CancellationToken>()),
+        Times.Never);
+    }
+
+    [Fact]
+    public async Task HandleKlineClosedEvent_WhenOrderIdIsNull_ShouldUpdateStrategyAndPlaceOrder()
+    {
+        var klineEvent = SetupKlineCloseEvent();
+        var strategy = new Strategy
+        {
+            Id = "test-id",
+            Symbol = "BTCUSDT",
+            Volatility = 0.01m,
+            Amount = 1000,
+            HasOpenOrder = false,
+            StrategyType = StrategyType.CloseSell,
+            AccountType = AccountType.Future,
+            Interval = "1d"
+        };
+        _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
+            .Returns(_mockAccountProcessor.Object);
+        _mockAccountProcessor.SetupSuccessfulSymbolFilter();
+        _mockAccountProcessor.SetupSuccessfulPlaceShortOrderAsync(12345L);
+        // Act
+        await _executor.HandleKlineClosedEvent(_mockAccountProcessor.Object, strategy, klineEvent, _ct);
+
+        // Assert
+        Assert.Equal(41000m, strategy.OpenPrice);
+        Assert.Equal(41410m, strategy.TargetPrice); // 41000 * (1 + 0.01)
+        _mockAccountProcessor.Verify(x => x.GetSymbolFilterData(strategy, _ct), Times.Once);
+        _mockAccountProcessor.Verify(x => x.PlaceShortOrderAsync(
+            It.IsAny<string>(),
+            It.IsAny<decimal>(),
+            It.IsAny<decimal>(),
+            It.IsAny<TimeInForce>(),
+            It.IsAny<CancellationToken>()),
+        Times.Once);
+    }
+
+    [Theory]
+    [InlineData(null, 0, 0)]
+    [InlineData(100, 1, 0)]
+    [InlineData(1, 0, 1)]
+    public async Task ExecuteAsync_WhenStrategyIsInvalid_ShouldNotPlaceOrder(int? openPrice, int targetPrice, int amount)
+    {
+        // Arrange
+        var strategy = new Strategy
+        {
+            AccountType = AccountType.Future,
+            OpenPrice = openPrice,
+            TargetPrice = targetPrice,
+            Quantity = amount
+        };
+
+        // Act
+        await _executor.ExecuteAsync(_mockAccountProcessor.Object, strategy, _ct);
+
+        // Assert
+        _mockAccountProcessor.Verify(x => x.PlaceLongOrderAsync(
+            It.IsAny<string>(),
+            It.IsAny<decimal>(),
+            It.IsAny<decimal>(),
+            It.IsAny<TimeInForce>(),
+            It.IsAny<CancellationToken>()),
+        Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenStrategyIsValidButNoOrder_ShouldTryPlaceOrder()
+    {
+        // Arrange
+        var strategy = new Strategy
+        {
+            OpenPrice = 1000m,
+            TargetPrice = 990m,
+            Quantity = 0.1m,
+            AccountType = AccountType.Future,
+            StrategyType = StrategyType.CloseSell,
+            OrderId = null
+        };
+        _mockAccountProcessorFactory.Setup(x => x.GetAccountProcessor(It.IsAny<AccountType>()))
+            .Returns(_mockAccountProcessor.Object);
+        _mockAccountProcessor.SetupSuccessfulSymbolFilter();
+        _mockAccountProcessor.SetupSuccessfulPlaceShortOrderAsync(12345L);
+        _mockAccountProcessor.SetupSuccessfulGetOrder(OrderStatus.New);
+
+        // Act
+        await _executor.ExecuteAsync(_mockAccountProcessor.Object, strategy, _ct);
+
+        // Assert
+        _mockAccountProcessor.Verify(x => x.PlaceShortOrderAsync(
+            It.IsAny<string>(),
+            It.IsAny<decimal>(),
+            It.IsAny<decimal>(),
+            It.IsAny<TimeInForce>(),
+            It.IsAny<CancellationToken>()),
+        Times.Once);
+        _mockAccountProcessor.Verify(x => x.GetOrder(
+            It.IsAny<string>(),
+            It.IsAny<long?>(),
+            It.IsAny<CancellationToken>()),
+        Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenOrderExists_ShouldNotPlaceNewOrder()
+    {
+        // Arrange
+        var strategy = new Strategy
+        {
+            OpenPrice = 1000m,
+            TargetPrice = 990m,
+            Quantity = 0.1m,
+            OrderId = 12345
+        };
+
+        // Act
+        await _executor.ExecuteAsync(_mockAccountProcessor.Object, strategy, _ct);
+
+        // Assert
+        _mockAccountProcessor.Verify(x => x.PlaceShortOrderAsync(
+            It.IsAny<string>(),
+            It.IsAny<decimal>(),
+            It.IsAny<decimal>(),
+            It.IsAny<TimeInForce>(),
+            It.IsAny<CancellationToken>()),
+        Times.Never);
     }
 }

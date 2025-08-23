@@ -9,13 +9,13 @@ namespace Trading.Application.Tests.Commands;
 
 public class CreateAlertCommandHandlerTests
 {
-    private readonly Mock<IAlertRepository> _alertRepositoryMock;
+    private readonly Mock<IAlertRepository> _mockAlertRepository;
     private readonly CreateAlertCommandHandler _handler;
 
     public CreateAlertCommandHandlerTests()
     {
-        _alertRepositoryMock = new Mock<IAlertRepository>();
-        _handler = new CreateAlertCommandHandler(_alertRepositoryMock.Object);
+        _mockAlertRepository = new Mock<IAlertRepository>();
+        _handler = new CreateAlertCommandHandler(_mockAlertRepository.Object);
     }
 
     [Fact]
@@ -30,7 +30,7 @@ public class CreateAlertCommandHandlerTests
         };
 
         Alert? capturedAlert = null;
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.AddAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()))
             .Callback<Alert, CancellationToken>((alert, _) => capturedAlert = alert)
             .ReturnsAsync((Alert a, CancellationToken _) => a);
@@ -51,7 +51,7 @@ public class CreateAlertCommandHandlerTests
         Assert.True(result.LastNotification > DateTime.UtcNow.AddMinutes(-1));
 
         // Verify repository call
-        _alertRepositoryMock.Verify(
+        _mockAlertRepository.Verify(
             x => x.AddAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
@@ -79,7 +79,7 @@ public class CreateAlertCommandHandlerTests
         Assert.Contains(expectedError, exception.Message);
 
         // Verify no repository calls or events
-        _alertRepositoryMock.Verify(
+        _mockAlertRepository.Verify(
             x => x.AddAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -103,7 +103,7 @@ public class CreateAlertCommandHandlerTests
         Assert.Contains(errorMessage, exception.Message);
 
         // Verify no repository calls or events
-        _alertRepositoryMock.Verify(
+        _mockAlertRepository.Verify(
             x => x.AddAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -119,7 +119,7 @@ public class CreateAlertCommandHandlerTests
             Expression = "close > open"
         };
 
-        _alertRepositoryMock
+        _mockAlertRepository
             .Setup(x => x.AddAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()))
             .Throws<InvalidOperationException>();
 

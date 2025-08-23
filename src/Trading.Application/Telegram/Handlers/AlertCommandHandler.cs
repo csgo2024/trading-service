@@ -67,7 +67,7 @@ public class AlertCommandHandler : ICommandHandler
 
     private async Task HandleDefault()
     {
-        var alerts = await _alertRepository.GetAllAlerts();
+        var alerts = await _alertRepository.GetAllAsync();
         if (alerts.Count == 0)
         {
             _logger.LogInformation("Alert is empty, please create and call later.");
@@ -76,9 +76,9 @@ public class AlertCommandHandler : ICommandHandler
         foreach (var alert in alerts)
         {
             var (emoji, status) = alert.Status.GetStatusInfo();
-            var text = $"""
-            {emoji} [{alert.Symbol}-{alert.Interval}]:{status}
-            Expression: {alert.Expression}
+            var text = $$"""
+            Status: {{status}} {{emoji}}
+            Expression: {{alert.Expression}}
             """;
             var buttons = alert.Status switch
             {
@@ -90,7 +90,7 @@ public class AlertCommandHandler : ICommandHandler
 
             var telegramScope = new TelegramLoggerScope
             {
-                Title = "⏰ Alarm Status",
+                Title = $"⏰ {alert.Symbol}-{alert.Interval} Alert",
                 ReplyMarkup = new InlineKeyboardMarkup([buttons])
             };
 
@@ -102,7 +102,7 @@ public class AlertCommandHandler : ICommandHandler
     }
     private async Task HandleEmpty()
     {
-        var count = await _alertRepository.ClearAllAlertsAsync(CancellationToken.None);
+        var count = await _alertRepository.ClearAllAsync(CancellationToken.None);
         await _mediator.Publish(new AlertEmptyedEvent());
         _logger.LogInformation("{Count} Alarms empty successfully.", count);
     }
@@ -117,7 +117,8 @@ public class AlertCommandHandler : ICommandHandler
         var command = JsonSerializer.Deserialize<CreateAlertCommand>(json, options)
                       ?? throw new InvalidOperationException("Failed to parse alert parameters");
 
-        await _mediator.Send(command);
+        var entity = await _mediator.Send(command);
+        _logger.LogInformation("Alert {id} created successfully.", entity?.Id);
     }
 
     private async Task HandleDelete(string id)

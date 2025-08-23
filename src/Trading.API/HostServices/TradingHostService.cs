@@ -1,17 +1,22 @@
 using Trading.Application.Services.Trading;
+using Trading.Domain.IRepositories;
 
 namespace Trading.API.HostServices;
 
 public class TradingHostService : BackgroundService
 {
     private readonly ILogger<TradingHostService> _logger;
-    private readonly StrategyDispatchService _strategyDispatchService;
+    private readonly IStrategyRepository _strategyRepository;
+    private readonly IStrategyTaskManager _strategyTaskManager;
+    private bool _initialized;
 
     public TradingHostService(ILogger<TradingHostService> logger,
-                              StrategyDispatchService strategyDispatchService)
+                              IStrategyRepository strategyRepository,
+                              IStrategyTaskManager strategyTaskManager)
     {
         _logger = logger;
-        _strategyDispatchService = strategyDispatchService;
+        _strategyRepository = strategyRepository;
+        _strategyTaskManager = strategyTaskManager;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -20,13 +25,21 @@ public class TradingHostService : BackgroundService
         {
             try
             {
-                await _strategyDispatchService.DispatchAsync(stoppingToken);
+                if (!_initialized)
+                {
+                    var strategies = await _strategyRepository.GetActiveStrategyAsync(stoppingToken);
+                    foreach (var strategy in strategies)
+                    {
+                        await _strategyTaskManager.StartAsync(strategy, stoppingToken);
+                    }
+                    _initialized = true;
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error initializing trading service");
             }
-            await SimulateDelay(TimeSpan.FromMinutes(10), stoppingToken);
+            await SimulateDelay(TimeSpan.FromMinutes(1), stoppingToken);
         }
     }
     public virtual Task SimulateDelay(TimeSpan delay, CancellationToken cancellationToken)

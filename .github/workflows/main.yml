@@ -1,0 +1,85 @@
+name: Sync And Publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: ubuntu-24.04
+    env:
+      BUILD_CONFIGURATION: Release
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore Trading.sln
+
+      - name: Build solution
+        run: dotnet build Trading.sln --configuration ${{ env.BUILD_CONFIGURATION }}
+
+      - name: Run tests
+        timeout-minutes: 15
+        run: dotnet test Trading.sln --configuration ${{ env.BUILD_CONFIGURATION }}
+
+  sync-to-azure:
+    name: 🔄 Sync to Azure DevOps
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: success()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Push to Azure DevOps (feature branch)
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git remote add azure "https://${{ secrets.AZURE_DEVOPS_PAT }}@dev.azure.com/${{ secrets.AZURE_DEVOPS_ORG }}/${{ secrets.AZURE_DEVOPS_PROJECT }}/_git/${{ secrets.AZURE_DEVOPS_REPO }}"
+          git push azure HEAD:refs/heads/ci-sync-${{ github.run_number }} --force
+
+      - name: Create Pull Request in Azure DevOps
+        run: |
+          curl -u :${{ secrets.AZURE_DEVOPS_PAT }} \
+            -H "Content-Type: application/json" \
+            -X POST \
+            -d '{
+              "sourceRefName": "refs/heads/ci-sync-${{ github.run_number }}",
+              "targetRefName": "refs/heads/main",
+              "title": "Sync from GitHub run #${{ github.run_number }}",
+              "description": "Automated PR created by GitHub Actions"
+            }' \
+            "https://dev.azure.com/${{ secrets.AZURE_DEVOPS_ORG }}/${{ secrets.AZURE_DEVOPS_PROJECT }}/_apis/git/repositories/${{ secrets.AZURE_DEVOPS_REPO }}/pullrequests?api-version=7.1-preview.1"
+
+  docker-publish:
+    name: 🐳 Build and Push Docker Image
+    runs-on: ubuntu-24.04-arm
+    needs: sync-to-azure
+    if: success()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build and Push Docker Image
+        run: |
+          echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker buildx build \
+            --platform linux/arm64 \
+            -f src/Trading.API/Dockerfile \
+            -t ghcr.io/${{ github.actor }}/trading:latest \
+            --push .

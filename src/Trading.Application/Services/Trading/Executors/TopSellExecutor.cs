@@ -1,5 +1,6 @@
 using Binance.Net.Enums;
 using Microsoft.Extensions.Logging;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Enums;
@@ -17,8 +18,8 @@ public class TopSellExecutor : BaseExecutor
                            IStrategyRepository strategyRepository,
                            JavaScriptEvaluator javaScriptEvaluator,
                            IAccountProcessorFactory accountProcessorFactory,
-                           IStrategyStateManager strategyStateManager)
-        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, strategyStateManager)
+                           GlobalState globalState)
+        : base(logger, strategyRepository, javaScriptEvaluator, accountProcessorFactory, globalState)
     {
     }
 
@@ -26,6 +27,14 @@ public class TopSellExecutor : BaseExecutor
 
     public override async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
+        if (strategy.Interval != "1d")
+        {
+            _logger.LogErrorWithAlert("[{AccountType}-{Symbol}] TopSell strategy requires 1d interval, but got {Interval}.",
+                                      strategy.AccountType,
+                                      strategy.Symbol,
+                                      strategy.Interval);
+            return;
+        }
         var currentDate = DateTime.UtcNow.Date;
         if (strategy.OrderPlacedTime.HasValue && strategy.OrderPlacedTime.Value.Date != currentDate)
         {
@@ -54,7 +63,7 @@ public class TopSellExecutor : BaseExecutor
         var kLines = await accountProcessor.GetKlines(strategy.Symbol, KlineInterval.OneDay, startTime: currentDate, limit: 1, ct: ct);
         if (kLines.Success && kLines.Data.Any())
         {
-            var openPrice = CommonHelper.TrimEndZero(kLines.Data.First().OpenPrice);
+            var openPrice = CommonHelper.TrimEndZero(kLines.Data[0].OpenPrice);
             var filterData = await accountProcessor.GetSymbolFilterData(strategy, ct);
             strategy.TargetPrice = BinanceHelper.AdjustPriceByStepSize(openPrice * (1 + strategy.Volatility), filterData.Item1);
             strategy.Quantity = BinanceHelper.AdjustQuantityBystepSize(strategy.Amount / strategy.TargetPrice, filterData.Item2);

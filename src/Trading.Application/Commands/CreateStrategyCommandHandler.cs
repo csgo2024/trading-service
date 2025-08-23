@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using MediatR;
-using Microsoft.Extensions.Logging;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
 
@@ -9,11 +8,8 @@ namespace Trading.Application.Commands;
 public class CreateStrategyCommandHandler : IRequestHandler<CreateStrategyCommand, Strategy>
 {
     private readonly IStrategyRepository _strategyRepository;
-    private readonly ILogger<CreateStrategyCommandHandler> _logger;
-    public CreateStrategyCommandHandler(IStrategyRepository strategyRepository,
-                                        ILogger<CreateStrategyCommandHandler> logger)
+    public CreateStrategyCommandHandler(IStrategyRepository strategyRepository)
     {
-        _logger = logger;
         _strategyRepository = strategyRepository;
     }
 
@@ -38,11 +34,7 @@ public class CreateStrategyCommandHandler : IRequestHandler<CreateStrategyComman
             request.StrategyType,
             request.StopLossExpression
         );
-        await _strategyRepository.Add(entity, cancellationToken);
-        _logger.LogInformation("[{Interval}-{StrategyType}] Strategy created: {StrategyId}",
-                               entity.Interval,
-                               entity.StrategyType,
-                               entity.Id);
+        entity = await _strategyRepository.AddAsync(entity, cancellationToken);
         return entity;
     }
 }

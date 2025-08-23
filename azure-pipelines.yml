@@ -74,12 +74,14 @@ stages:
   - template: semver-job.yml@templates
     parameters:
       major: 0
-      minor: 1
+      minor: 4
+      patch: 0
       environment: 'production'
 
   - deployment: build_image
     displayName: 'Build Docker Image'
     environment: 'production'
+    condition: false # 禁用 build docker image as it runs too long.
     dependsOn: semver
     strategy:
       runOnce:
@@ -110,7 +112,7 @@ stages:
                 --push \
                 .
             displayName: 'Build Docker image'
-            timeoutInMinutes: 30
+            timeoutInMinutes: 60
 
 # https://stackoverflow.com/questions/59226055/setting-git-tag-from-azure-devops-build-pipeline-on-complete
 - stage: Release

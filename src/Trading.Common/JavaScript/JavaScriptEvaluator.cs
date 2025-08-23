@@ -23,6 +23,7 @@ public class JavaScriptEvaluator : IDisposable
 
     public virtual bool ValidateExpression(string expression, out string message)
     {
+        _engineLock.Wait();
         try
         {
             SetDefaultValues();
@@ -34,6 +35,10 @@ public class JavaScriptEvaluator : IDisposable
         {
             message = ex.Message;
             return false;
+        }
+        finally
+        {
+            _engineLock.Release();
         }
     }
 

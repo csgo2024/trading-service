@@ -1,9 +1,9 @@
 using Binance.Net.Enums;
 using Binance.Net.Objects.Models;
 using CryptoExchange.Net.Objects;
-using MediatR;
 using Microsoft.Extensions.Logging;
-using Trading.Application.Services.Alerts;
+using Trading.Application.IntegrationEvents.Events;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Enums;
@@ -11,29 +11,27 @@ using Trading.Common.Helpers;
 using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
-using Trading.Exchange.Binance.Helpers;
 
 namespace Trading.Application.Services.Trading.Executors;
 
-public abstract class BaseExecutor :
-    INotificationHandler<KlineClosedEvent>
+public abstract class BaseExecutor
 {
     protected readonly ILogger _logger;
     protected readonly IStrategyRepository _strategyRepository;
     protected readonly JavaScriptEvaluator _javaScriptEvaluator;
-    protected readonly IStrategyStateManager _stateManager;
+    protected readonly GlobalState _globalState;
     protected readonly IAccountProcessorFactory _accountProcessorFactory;
     public BaseExecutor(ILogger logger,
                         IStrategyRepository strategyRepository,
                         JavaScriptEvaluator javaScriptEvaluator,
                         IAccountProcessorFactory accountProcessorFactory,
-                        IStrategyStateManager strategyStateManager)
+                        GlobalState globalState)
     {
         _strategyRepository = strategyRepository;
         _javaScriptEvaluator = javaScriptEvaluator;
         _logger = logger;
         _accountProcessorFactory = accountProcessorFactory;
-        _stateManager = strategyStateManager;
+        _globalState = globalState;
     }
 
     public abstract StrategyType StrategyType { get; }
@@ -87,22 +85,6 @@ public abstract class BaseExecutor :
 
         return (false, result);
     }
-    public virtual Dictionary<string, Strategy> GetMonitoringStrategy()
-    {
-        var strategies = _stateManager.GetState(StrategyType);
-        return strategies ?? [];
-    }
-    public void RemoveFromMonitoringStrategy(Strategy strategy)
-    {
-        _stateManager.RemoveStrategy(strategy);
-    }
-
-    public virtual async Task LoadActiveStratey(CancellationToken cancellationToken)
-    {
-        var strategies = await _strategyRepository.FindActiveStrategyByType(StrategyType, cancellationToken);
-        _stateManager.SetState(StrategyType, strategies.ToDictionary(x => x.Id));
-    }
-
     public virtual async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
         await CheckOrderStatus(accountProcessor, strategy, ct);
@@ -110,14 +92,33 @@ public abstract class BaseExecutor :
         await _strategyRepository.UpdateAsync(strategy.Id, strategy, ct);
     }
 
-    public virtual async Task ExecuteLoopAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken cancellationToken)
+    public virtual async Task ExecuteLoopAsync(IAccountProcessor accountProcessor, string strategyId, CancellationToken cancellationToken)
     {
         while (!cancellationToken.IsCancellationRequested)
         {
             try
             {
-                await ExecuteAsync(accountProcessor, strategy, cancellationToken);
-                await Task.Delay(TimeSpan.FromMinutes(2), cancellationToken);
+                // get strategy from global state to ensure we have the latest state
+                _globalState.TryGetStrategy(strategyId, out var strategy);
+                if (strategy != null)
+                {
+                    if (strategy.OrderPlacedTime is null)
+                    {
+                        await ExecuteAsync(accountProcessor, strategy, cancellationToken);
+                    }
+                    else
+                    {
+                        var elapsed = (DateTime.UtcNow - strategy.OrderPlacedTime.Value).TotalSeconds;
+                        if (elapsed >= 2 * 60) // 2 minutes
+                        {
+                            await ExecuteAsync(accountProcessor, strategy, cancellationToken);
+                        }
+                    }
+                    // after ExecuteAsync is called, orderPlacedTime has been updated
+                    // so we need to update strategy in global state to ensure we don't execute too frequently
+                    _globalState.AddOrUpdateStrategy(strategyId, strategy);
+                }
+                await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -125,7 +126,7 @@ public abstract class BaseExecutor :
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error executing strategy {StrategyId}", strategy.Id);
+                _logger.LogError(ex, "Error executing strategy {StrategyId}", strategyId);
                 await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
             }
         }
@@ -155,7 +156,7 @@ public abstract class BaseExecutor :
                          strategy.Symbol,
                          cancelResult.Error?.Message);
     }
-    public async Task TryStopOrderAsync(IAccountProcessor accountProcessor, Strategy strategy, decimal stopPrice, CancellationToken ct)
+    public virtual async Task TryStopOrderAsync(IAccountProcessor accountProcessor, Strategy strategy, decimal stopPrice, CancellationToken ct)
     {
         if (strategy.OrderId is null)
         {
@@ -186,7 +187,7 @@ public abstract class BaseExecutor :
     public virtual async Task CheckOrderStatus(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
         // NO open order skip check.
-        if (strategy.HasOpenOrder == false || strategy.OrderId is null)
+        if (!strategy.HasOpenOrder || strategy.OrderId is null)
         {
             strategy.HasOpenOrder = false;
             return;
@@ -266,31 +267,11 @@ public abstract class BaseExecutor :
             result?.Error?.Message, price, quantity);
     }
 
-    public virtual async Task Handle(KlineClosedEvent notification, CancellationToken cancellationToken)
-    {
-        var strategies = GetMonitoringStrategy().Values.Where(x => x.Symbol == notification.Symbol
-                        && x.Interval == BinanceHelper.ConvertToIntervalString(notification.Interval));
-        var tasks = strategies.Select(async strategy =>
-        {
-            var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType);
-            if (accountProcessor != null)
-            {
-                await HandleKlineClosedEvent(accountProcessor, strategy, notification, cancellationToken);
-                if (ShouldStopLoss(accountProcessor, strategy, notification))
-                {
-                    await TryStopOrderAsync(accountProcessor, strategy, notification.Kline.ClosePrice, cancellationToken);
-                    strategy.Pause();
-                }
-                await _strategyRepository.UpdateAsync(strategy.Id, strategy, cancellationToken);
-            }
-        });
-        await Task.WhenAll(tasks);
-    }
-    public virtual Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent notification, CancellationToken cancellationToken)
+    public virtual Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event, CancellationToken cancellationToken)
     {
         return Task.CompletedTask;
     }
-    protected bool ShouldStopLoss(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event)
+    public virtual bool ShouldStopLoss(Strategy strategy, KlineClosedEvent @event)
     {
         if (string.IsNullOrEmpty(strategy.StopLossExpression))
         {

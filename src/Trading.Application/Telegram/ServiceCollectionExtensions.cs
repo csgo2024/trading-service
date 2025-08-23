@@ -26,6 +26,7 @@ public static class ServiceCollectionExtensions
             return new TelegramBotClient(settings.BotToken ?? throw new InvalidOperationException("TelegramSettings is not valid."));
         });
         services.AddSingleton<HelpCommandHandler>();
+        services.AddSingleton<DebugCommandHandler>();
         services.AddSingleton<StrategyCommandHandler>();
         services.AddSingleton<AlertCommandHandler>();
         services.AddSingleton<TelegramCommandHandlerFactory>();

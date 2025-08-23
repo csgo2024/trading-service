@@ -60,7 +60,7 @@ public class StrategyCommandHandler : ICommandHandler
 
     private async Task HandleDefault()
     {
-        var strategies = await _strategyRepository.GetAllStrategies();
+        var strategies = await _strategyRepository.GetAllAsync();
         if (strategies.Count == 0)
         {
             _logger.LogInformation("Strategy is empty, please create and call later.");
@@ -71,11 +71,10 @@ public class StrategyCommandHandler : ICommandHandler
         {
             var (emoji, status) = strategy.Status.GetStatusInfo();
             var text = $"""
-            {emoji} [{strategy.AccountType}-{strategy.StrategyType}-{strategy.Symbol}]: {status}
-            Internal: {strategy.Interval} / OpenPrice: {strategy.OpenPrice}
-            TargetPrice: {strategy.TargetPrice} 💰
+            Status: {status} {emoji}
+            OpenPrice: {(strategy.OpenPrice.HasValue ? strategy.OpenPrice : "-")} / TargetPrice: {strategy.TargetPrice}
             Volatility: {strategy.Volatility:P2}
-            Amount: {strategy.Amount} / Quantity: {strategy.Quantity}
+            Amount: {strategy.Amount} 💰 / Quantity: {strategy.Quantity}
             """;
             var buttons = strategy.Status switch
             {
@@ -86,7 +85,7 @@ public class StrategyCommandHandler : ICommandHandler
             buttons = [.. buttons, InlineKeyboardButton.WithCallbackData("🗑️ Delete", $"strategy_delete_{strategy.Id}")];
             var telegramScope = new TelegramLoggerScope
             {
-                Title = "📊 Strategy Status",
+                Title = $"📊 {strategy.AccountType}-{strategy.Symbol}-{strategy.Interval}-{strategy.StrategyType}",
                 ReplyMarkup = new InlineKeyboardMarkup([buttons])
             };
 
@@ -111,7 +110,8 @@ public class StrategyCommandHandler : ICommandHandler
 
         var command = JsonSerializer.Deserialize<CreateStrategyCommand>(json, options)
                       ?? throw new InvalidOperationException("Failed to parse strategy parameters");
-        await _mediator.Send(command);
+        var entity = await _mediator.Send(command);
+        _logger.LogInformation("Strategy {id} created successfully.", entity?.Id);
     }
 
     private async Task HandleDelete(string id)

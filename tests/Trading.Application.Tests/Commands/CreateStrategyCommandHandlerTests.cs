@@ -1,6 +1,5 @@
 using System.ComponentModel.DataAnnotations;
 using MediatR;
-using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.Application.Commands;
 using Trading.Domain.Entities;
@@ -14,17 +13,15 @@ namespace Trading.Application.Tests.Commands;
 
 public class CreateStrategyCommandHandlerTests
 {
-    private readonly Mock<IStrategyRepository> _strategyRepositoryMock;
-    private readonly Mock<IMediator> _mediatorMock;
-    private readonly Mock<ILogger<CreateStrategyCommandHandler>> _loggerMock;
+    private readonly Mock<IStrategyRepository> _mockStrategyRepository;
+    private readonly Mock<IMediator> _mockMediator;
     private readonly CreateStrategyCommandHandler _handler;
 
     public CreateStrategyCommandHandlerTests()
     {
-        _strategyRepositoryMock = new Mock<IStrategyRepository>();
-        _mediatorMock = new Mock<IMediator>();
-        _loggerMock = new Mock<ILogger<CreateStrategyCommandHandler>>();
-        _handler = new CreateStrategyCommandHandler(_strategyRepositoryMock.Object, _loggerMock.Object);
+        _mockStrategyRepository = new Mock<IStrategyRepository>();
+        _mockMediator = new Mock<IMediator>();
+        _handler = new CreateStrategyCommandHandler(_mockStrategyRepository.Object);
     }
 
     [Fact]
@@ -38,12 +35,13 @@ public class CreateStrategyCommandHandlerTests
             Volatility = 0.1m,
             AccountType = AccountType.Spot,
             StopLossExpression = "close > open",
-            StrategyType = StrategyType.BottomBuy
+            StrategyType = StrategyType.BottomBuy,
+            Interval = "1d"
         };
 
         Strategy? capturedStrategy = null;
-        _strategyRepositoryMock
-            .Setup(x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
+        _mockStrategyRepository
+            .Setup(x => x.AddAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .Callback<Strategy, CancellationToken>((strategy, _) => capturedStrategy = strategy)
             .ReturnsAsync((Strategy s, CancellationToken _) => s);
 
@@ -65,8 +63,8 @@ public class CreateStrategyCommandHandlerTests
         Assert.True(result.CreatedAt > DateTime.Now.AddMinutes(-1));
 
         // Verify repository call
-        _strategyRepositoryMock.Verify(
-            x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
+        _mockStrategyRepository.Verify(
+            x => x.AddAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -95,10 +93,10 @@ public class CreateStrategyCommandHandlerTests
         Assert.Contains(expectedError, exception.Message);
 
         // Verify no repository calls or events
-        _strategyRepositoryMock.Verify(
-            x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
+        _mockStrategyRepository.Verify(
+            x => x.AddAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
             Times.Never);
-        _mediatorMock.Verify(
+        _mockMediator.Verify(
             x => x.Publish(It.IsAny<StrategyCreatedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
@@ -149,6 +147,31 @@ public class CreateStrategyCommandHandlerTests
         Assert.Contains("Spot account type is not supported for TopSell or CloseSell strategy.", exception.Message);
     }
 
+    [Theory]
+    [InlineData(StrategyType.TopSell)]
+    [InlineData(StrategyType.BottomBuy)]
+    public async Task Handle_WhenStrategyIsTopSellOrBottomBut_IntervalIsNot1d_ShouldThrowValidationException(StrategyType strategyType)
+    {
+        // Arrange
+        var command = new CreateStrategyCommand
+        {
+            Symbol = "BTCUSDT",
+            Amount = 100,
+            Volatility = 0.1m,
+            Leverage = 5,
+            Interval = "1w",
+            AccountType = AccountType.Future,
+            StopLossExpression = "close > open",
+            StrategyType = strategyType
+        };
+
+        // Act & Assert
+        var exception = await Assert.ThrowsAsync<ValidationException>(
+            () => _handler.Handle(command, CancellationToken.None));
+
+        Assert.Contains("Interval must be '1d' for BottomBuy or TopSell strategy.", exception.Message);
+    }
+
     [Fact]
     public async Task Handle_WhenRepositoryFails_ShouldNotPublishEvent()
     {
@@ -158,12 +181,14 @@ public class CreateStrategyCommandHandlerTests
             Symbol = "BTCUSDT",
             Amount = 100,
             Volatility = 0.1m,
+            StrategyType = StrategyType.BottomBuy,
+            Interval = "1d",
             StopLossExpression = "close > open"
         };
 
         var expectedException = new InvalidOperationException("Test exception");
-        _strategyRepositoryMock
-            .Setup(x => x.Add(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
+        _mockStrategyRepository
+            .Setup(x => x.AddAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(expectedException);
 
         // Act & Assert
@@ -171,7 +196,7 @@ public class CreateStrategyCommandHandlerTests
             () => _handler.Handle(command, CancellationToken.None));
 
         // Verify no events were published
-        _mediatorMock.Verify(
+        _mockMediator.Verify(
             x => x.Publish(It.IsAny<StrategyCreatedEvent>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }

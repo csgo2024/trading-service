@@ -1,141 +1,140 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.API.HostServices;
-using Trading.Application.Services.Common;
+using Trading.API.Tests;
 using Trading.Application.Services.Trading;
-using Trading.Application.Services.Trading.Account;
-using Trading.Application.Services.Trading.Executors;
+using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
 
-namespace Trading.API.Tests.HostServices;
-
-public class TradingHostServiceTests : IDisposable
+public class TradingHostServiceTests
 {
-    private readonly Mock<ILogger<TradingHostService>> _loggerMock;
-    private readonly Mock<StrategyDispatchService> _strategyDispatchServiceMock;
-    private readonly CancellationTokenSource _cts;
-    private readonly TestTradingHostService _service;
+    private readonly Mock<ILogger<TradingHostService>> _mockLogger;
+    private readonly Mock<IStrategyRepository> _mockStrategyRepository;
+    private readonly Mock<IStrategyTaskManager> _mockStrategyTaskManager;
+    private readonly TestTradingHostService _hostService;
 
     public TradingHostServiceTests()
     {
-        _loggerMock = new Mock<ILogger<TradingHostService>>();
-        _strategyDispatchServiceMock = new Mock<StrategyDispatchService>(
-            Mock.Of<ILogger<StrategyDispatchService>>(),
-            Mock.Of<IAccountProcessorFactory>(),
-            Mock.Of<IExecutorFactory>(),
-            Mock.Of<IBackgroundTaskManager>(),
-            Mock.Of<IStrategyRepository>());
-        _cts = new CancellationTokenSource();
+        _mockLogger = new Mock<ILogger<TradingHostService>>();
+        _mockStrategyRepository = new Mock<IStrategyRepository>();
+        _mockStrategyTaskManager = new Mock<IStrategyTaskManager>();
 
-        _service = new TestTradingHostService(
-            _loggerMock.Object,
-            _strategyDispatchServiceMock.Object);
+        _hostService = new TestTradingHostService(
+            _mockLogger.Object,
+            _mockStrategyRepository.Object,
+            _mockStrategyTaskManager.Object
+        );
     }
 
+    [Fact]
+    public async Task ExecuteAsync_ShouldInitializeStrategiesOnFirstRun()
+    {
+        // Arrange
+        var strategies = new List<Strategy> { new Strategy(), new Strategy() };
+        _mockStrategyRepository
+            .Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(strategies);
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200); // Stop quickly
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        _mockStrategyRepository.Verify(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()), Times.Once);
+        _mockStrategyTaskManager.Verify(m => m.StartAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()),
+                                Times.Exactly(strategies.Count));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldNotReinitializeAfterFirstRun()
+    {
+        // Arrange
+        var strategies = new List<Strategy> { new Strategy() };
+        _mockStrategyRepository.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(strategies);
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(300);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        _mockStrategyRepository.Verify(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldLogError_WhenRepositoryThrows()
+    {
+        // Arrange
+        _mockStrategyRepository.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
+                         .ThrowsAsync(new InvalidDataException("Repo error"));
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        _mockLogger.VerifyLoggingTimes(LogLevel.Error, "Error initializing trading service", Times.AtLeastOnce());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldLogError_WhenTaskManagerThrows()
+    {
+        // Arrange
+        var strategies = new List<Strategy> { new Strategy() };
+        _mockStrategyRepository.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
+                         .ReturnsAsync(strategies);
+
+        _mockStrategyTaskManager.Setup(m => m.StartAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
+                        .ThrowsAsync(new InvalidDataException("Task error"));
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        _mockLogger.VerifyLoggingTimes(LogLevel.Error, "Error initializing trading service", Times.AtLeastOnce());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_ShouldCallSimulateDelay()
+    {
+        // Arrange
+        var strategies = new List<Strategy> { new Strategy() };
+        _mockStrategyRepository.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
+                         .ReturnsAsync(strategies);
+
+        var cts = new CancellationTokenSource();
+        cts.CancelAfter(200);
+
+        // Act
+        await _hostService.StartAsync(cts.Token);
+
+        // Assert
+        Assert.True(_hostService.DelayCalled);
+    }
+
+    // Helper class to override delay
     private sealed class TestTradingHostService : TradingHostService
     {
-        private int _delayCallCount;
+        public bool DelayCalled { get; private set; }
 
-        public TestTradingHostService(
-            ILogger<TradingHostService> logger,
-            StrategyDispatchService strategyDispatchService)
-            : base(logger, strategyDispatchService)
-        {
-        }
+        public TestTradingHostService(ILogger<TradingHostService> logger,
+                                      IStrategyRepository repo,
+                                      IStrategyTaskManager taskManager)
+            : base(logger, repo, taskManager) { }
 
         public override Task SimulateDelay(TimeSpan delay, CancellationToken cancellationToken)
         {
-            _delayCallCount++;
-
-            if (_delayCallCount >= 2)
-            {
-                throw new OperationCanceledException();
-            }
-            return Task.CompletedTask;
+            DelayCalled = true;
+            return Task.CompletedTask; // no real delay
         }
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_ShouldExecuteStrategyService()
-    {
-        // Arrange
-        _strategyDispatchServiceMock
-            .Setup(x => x.DispatchAsync(It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
-
-        // Act
-        try
-        {
-            await _service.StartAsync(_cts.Token);
-        }
-        catch (Exception)
-        {
-            // ignored
-        }
-
-        // Assert
-        _strategyDispatchServiceMock.Verify(
-            x => x.DispatchAsync(It.IsAny<CancellationToken>()),
-            Times.AtLeast(1));
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_WhenStrategyServiceThrowsException_ShouldLogErrorAndContinue()
-    {
-        // Arrange
-        var expectedException = new InvalidOperationException("Test exception");
-        _strategyDispatchServiceMock
-            .Setup(x => x.DispatchAsync(It.IsAny<CancellationToken>()))
-            .ThrowsAsync(expectedException);
-
-        // Act
-        try
-        {
-            await _service.StartAsync(_cts.Token);
-        }
-        catch (Exception)
-        {
-            // ignored
-        }
-        // Assert
-        _loggerMock.Verify(
-            x => x.Log(
-                LogLevel.Error,
-                It.IsAny<EventId>(),
-                It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("Error initializing trading service")),
-                expectedException,
-                It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
-            Times.Exactly(2));
-
-        _strategyDispatchServiceMock.Verify(
-            x => x.DispatchAsync(It.IsAny<CancellationToken>()),
-            Times.Exactly(2));
-    }
-
-    [Fact]
-    public async Task ExecuteAsync_ShouldRespectCancellation()
-    {
-        // Arrange
-        _cts.CancelAfter(TimeSpan.FromMilliseconds(100));
-
-        // Act
-        try
-        {
-            await _service.StartAsync(_cts.Token);
-        }
-        catch (Exception)
-        {
-            // ignored
-        }
-
-        // Assert
-        _strategyDispatchServiceMock.Verify(
-            x => x.DispatchAsync(It.IsAny<CancellationToken>()),
-            Times.AtMost(2));
-    }
-
-    public void Dispose()
-    {
-        _cts.Dispose();
     }
 }

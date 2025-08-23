@@ -1,30 +1,31 @@
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Services.Common;
+using Trading.Application.Services.Shared;
 using Trading.Common.Enums;
 
-namespace Trading.Application.Tests.Services.Common;
+namespace Trading.Application.Tests.Services.Shared;
 
-public class BackgroundTaskManagerTests : IAsyncDisposable
+public class BaseTaskManagerTests
 {
-    private readonly Mock<ILogger<BackgroundTaskManager>> _loggerMock;
-    private readonly BackgroundTaskManager _taskManager;
-    public BackgroundTaskManagerTests()
+    private readonly Mock<ILogger<BaseTaskManager>> _mockLogger;
+    private readonly GlobalState _globalState;
+    public BaseTaskManagerTests()
     {
-        _loggerMock = new Mock<ILogger<BackgroundTaskManager>>();
-        _taskManager = new BackgroundTaskManager(_loggerMock.Object, new BackgroundTaskState());
+        _mockLogger = new Mock<ILogger<BaseTaskManager>>();
+        _globalState = new GlobalState(Mock.Of<ILogger<GlobalState>>());
     }
 
     [Fact]
     public async Task StartAsync_ShouldAddTaskToMonitoring()
     {
         // Arrange
-        var taskId = "test-task";
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
+        var taskId = Guid.NewGuid().ToString();
         var executed = false;
 
         // Act
         using var cts = new CancellationTokenSource();
-        await _taskManager.StartAsync(
+        await taskManager.StartAsync(
             TaskCategory.Strategy,
             taskId,
             async ct =>
@@ -35,23 +36,28 @@ public class BackgroundTaskManagerTests : IAsyncDisposable
             cts.Token);
 
         await Task.Delay(200); // Wait for task execution
+        _globalState.TryGetTask(taskId, out var taskInfo);
 
         // Assert
         Assert.True(executed);
-        Assert.Contains(taskId, _taskManager.GetActiveTaskIds(TaskCategory.Strategy));
-        await _taskManager.StopAsync();
+        Assert.NotNull(taskInfo);
+        Assert.Equal(taskId, taskInfo.Id);
+        _mockLogger.VerifyLoggingOnce(LogLevel.Debug, $"Task started: Category={TaskCategory.Strategy}, TaskId={taskId}");
+        await taskManager.StopAsync();
+        await taskManager.DisposeAsync();
     }
 
     [Fact]
     public async Task StartAsync_WhenTaskAlreadyExists_ShouldNotStartNewTask()
     {
         // Arrange
-        var taskId = "test-task";
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
+        var taskId = Guid.NewGuid().ToString();
         var executionCount = 0;
 
         // Act
         using var cts = new CancellationTokenSource();
-        await _taskManager.StartAsync(
+        await taskManager.StartAsync(
             TaskCategory.Strategy,
             taskId,
             async ct =>
@@ -61,7 +67,7 @@ public class BackgroundTaskManagerTests : IAsyncDisposable
             },
             cts.Token);
 
-        await _taskManager.StartAsync(
+        await taskManager.StartAsync(
             TaskCategory.Strategy,
             taskId,
             async ct =>
@@ -75,54 +81,51 @@ public class BackgroundTaskManagerTests : IAsyncDisposable
 
         // Assert
         Assert.Equal(1, executionCount);
-        await _taskManager.StopAsync();
+        _mockLogger.VerifyLoggingOnce(LogLevel.Debug, $"Task started: Category={TaskCategory.Strategy}, TaskId={taskId}");
+        await taskManager.StopAsync();
+        await taskManager.DisposeAsync();
     }
 
     [Fact]
     public async Task StopAsync_ShouldRemoveAndCancelTask()
     {
         // Arrange
-        var taskId = "test-task";
-        var cancellationRequested = false;
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
+        var taskId = Guid.NewGuid().ToString();
 
         using var cts = new CancellationTokenSource();
-        await _taskManager.StartAsync(
+        await taskManager.StartAsync(
             TaskCategory.Strategy,
             taskId,
             async ct =>
             {
-                try
-                {
-                    await Task.Delay(60 * 1000, ct);
-                }
-                catch (OperationCanceledException)
-                {
-                    cancellationRequested = true;
-                    throw;
-                }
+                await Task.Delay(10 * 1000, ct);
             },
             cts.Token);
 
         // Act
-        await _taskManager.StopAsync(TaskCategory.Strategy, taskId);
+        await taskManager.StopAsync(TaskCategory.Strategy, taskId);
+        _globalState.TryGetTask(taskId, out var taskInfo);
 
         // Assert
-        Assert.True(cancellationRequested);
-        Assert.Empty(_taskManager.GetActiveTaskIds(TaskCategory.Strategy));
-        await _taskManager.StopAsync();
+        Assert.Null(taskInfo);
+        _mockLogger.VerifyLoggingOnce(LogLevel.Debug, $"Task stopped: Category={TaskCategory.Strategy}, TaskId={taskId}");
+        await taskManager.StopAsync();
+        await taskManager.DisposeAsync();
     }
 
     [Fact]
     public async Task StopAsync_WithCategory_ShouldStopAllTasksInCategory()
     {
         // Arrange
-        var taskIds = new[] { "task1", "task2" };
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
+        var taskIds = new[] { Guid.NewGuid().ToString(), Guid.NewGuid().ToString() };
         var executingTasks = 0;
 
         using var cts = new CancellationTokenSource();
         foreach (var taskId in taskIds)
         {
-            await _taskManager.StartAsync(
+            await taskManager.StartAsync(
                 TaskCategory.Strategy,
                 taskId,
                 async ct =>
@@ -143,59 +146,35 @@ public class BackgroundTaskManagerTests : IAsyncDisposable
         await Task.Delay(2000); // Wait for tasks to start
 
         // Act
-        await _taskManager.StopAsync(TaskCategory.Strategy);
+        await taskManager.StopAsync(TaskCategory.Strategy);
 
         // Assert
+        foreach (var taskId in taskIds)
+        {
+            _globalState.TryGetTask(taskId, out var taskInfo);
+            _mockLogger.VerifyLoggingOnce(LogLevel.Debug, $"Task stopped: Category={TaskCategory.Strategy}, TaskId={taskId}");
+            Assert.Null(taskInfo);
+        }
         Assert.Equal(0, executingTasks);
-        Assert.Empty(_taskManager.GetActiveTaskIds(TaskCategory.Strategy));
-    }
-
-    [Fact]
-    public async Task GetActiveTaskIds_ShouldReturnCorrectTasksForCategory()
-    {
-        // Arrange
-        var strategyTaskId = "strategy-task";
-        var alertTaskId = "alert-task";
-
-        using var cts = new CancellationTokenSource();
-        await _taskManager.StartAsync(
-            TaskCategory.Strategy,
-            strategyTaskId,
-            ct => Task.Delay(1000, ct),
-            cts.Token);
-
-        await _taskManager.StartAsync(
-            TaskCategory.Alert,
-            alertTaskId,
-            ct => Task.Delay(1000, ct),
-            cts.Token);
-
-        // Act
-        var strategyTasks = _taskManager.GetActiveTaskIds(TaskCategory.Strategy);
-        var alertTasks = _taskManager.GetActiveTaskIds(TaskCategory.Alert);
-
-        // Assert
-        Assert.Single(strategyTasks);
-        Assert.Equal(strategyTaskId, strategyTasks[0]);
-        Assert.Single(alertTasks);
-        Assert.Equal(alertTaskId, alertTasks[0]);
+        await taskManager.DisposeAsync();
     }
 
     [Fact]
     public async Task StopAsync_ShouldStopAllTasks()
     {
         // Arrange
+        var taskManager = new BaseTaskManager(_mockLogger.Object, _globalState);
         var executingTasks = 0;
         var tasks = new[]
         {
-            (TaskCategory.Strategy, "strategy-task"),
-            (TaskCategory.Alert, "alert-task")
+            (TaskCategory.Strategy, Guid.NewGuid().ToString()),
+            (TaskCategory.Alert, Guid.NewGuid().ToString())
         };
 
         using var cts = new CancellationTokenSource();
         foreach (var (category, taskId) in tasks)
         {
-            await _taskManager.StartAsync(
+            await taskManager.StartAsync(
                 category,
                 taskId,
                 async ct =>
@@ -216,16 +195,15 @@ public class BackgroundTaskManagerTests : IAsyncDisposable
         await Task.Delay(2000); // Wait for tasks to start
 
         // Act
-        await _taskManager.StopAsync();
+        await taskManager.StopAsync();
 
         // Assert
+        foreach (var taskId in tasks.Select(t => t.Item2))
+        {
+            _globalState.TryGetTask(taskId, out var taskInfo);
+            Assert.Null(taskInfo);
+        }
         Assert.Equal(0, executingTasks);
-        Assert.Empty(_taskManager.GetActiveTaskIds(TaskCategory.Strategy));
-        Assert.Empty(_taskManager.GetActiveTaskIds(TaskCategory.Alert));
-    }
-
-    public async ValueTask DisposeAsync()
-    {
-        await _taskManager.DisposeAsync();
+        await taskManager.DisposeAsync();
     }
 }

@@ -1,24 +1,34 @@
 using Microsoft.Extensions.Logging;
 using Trading.Common.Enums;
 
-namespace Trading.Application.Services.Common;
+namespace Trading.Application.Services.Shared;
 
-public interface IBackgroundTaskManager : IAsyncDisposable
+public class TaskInfo
+{
+
+#pragma warning disable CS8618
+    public string Id { get; set; }
+    public Task Task { get; set; }
+    public TaskCategory Category { get; set; }
+    public CancellationTokenSource Cts { get; set; }
+#pragma warning restore CS8618
+
+}
+public interface ITaskManager : IAsyncDisposable
 {
     Task StartAsync(TaskCategory category, string taskId, Func<CancellationToken, Task> executionFunc, CancellationToken cancellationToken);
     Task StopAsync(TaskCategory category, string taskId);
     Task StopAsync(TaskCategory category);
     Task StopAsync();
-    string[] GetActiveTaskIds(TaskCategory category);
 }
 
-public class BackgroundTaskManager : IBackgroundTaskManager
+public class BaseTaskManager : ITaskManager
 {
-    private readonly ILogger<BackgroundTaskManager> _logger;
+    private readonly ILogger<BaseTaskManager> _logger;
     private readonly SemaphoreSlim _taskLock = new(1, 1);
-    private readonly IBackgroundTaskState _state;
+    private readonly GlobalState _state;
 
-    public BackgroundTaskManager(ILogger<BackgroundTaskManager> logger, IBackgroundTaskState state)
+    public BaseTaskManager(ILogger<BaseTaskManager> logger, GlobalState state)
     {
         _logger = logger;
         _state = state;
@@ -29,13 +39,13 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         await _taskLock.WaitAsync(cancellationToken);
         try
         {
-            if (_state.TryGetValue(taskId, out _))
+            if (_state.TryGetTask(taskId, out _))
             {
                 return;
             }
 
             var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var task = Task.Run(() => executionFunc(cts.Token), cts.Token);
+            var task = executionFunc(cts.Token);
 
             var taskInfo = new TaskInfo
             {
@@ -45,15 +55,15 @@ public class BackgroundTaskManager : IBackgroundTaskManager
                 Task = task
             };
 
-            if (!_state.TryAdd(taskInfo))
+            if (!_state.TryAddTask(taskInfo))
             {
                 _logger.LogWarning("Failed to add task info: Category={Category}, TaskId={TaskId}", category, taskId);
-                cts.Cancel();
+                await cts.CancelAsync();
                 cts.Dispose();
                 return;
             }
 
-            _logger.LogInformation("Task started: Category={Category}, TaskId={TaskId}", category, taskId);
+            _logger.LogDebug("Task started: Category={Category}, TaskId={TaskId}", category, taskId);
         }
         catch (Exception ex)
         {
@@ -67,14 +77,13 @@ public class BackgroundTaskManager : IBackgroundTaskManager
 
     public async Task StopAsync(TaskCategory category, string taskId)
     {
-        TaskInfo? taskInfo = null;
+        TaskInfo? taskInfo;
 
         await _taskLock.WaitAsync();
         try
         {
-            if (!_state.TryRemove(taskId, out taskInfo))
+            if (!_state.TryRemoveTask(taskId, out taskInfo))
             {
-                _logger.LogWarning("Task not found to stop: Category={Category}, TaskId={TaskId}", category, taskId);
                 return;
             }
         }
@@ -85,9 +94,16 @@ public class BackgroundTaskManager : IBackgroundTaskManager
 
         try
         {
-            taskInfo!.Cts.Cancel();
-            await taskInfo.Task;
-            taskInfo.Cts.Dispose();
+            await taskInfo!.Cts.CancelAsync();
+            try
+            {
+                await taskInfo.Task; // Ensure task completes
+            }
+            catch (OperationCanceledException)
+            {
+                // ignore TaskCanceledException
+            }
+            _logger.LogDebug("Task stopped: Category={Category}, TaskId={TaskId}", category, taskId);
         }
         catch (Exception ex)
         {
@@ -96,7 +112,6 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         finally
         {
             taskInfo!.Cts.Dispose();
-            _logger.LogInformation("Task stopped: Category={Category}, TaskId={TaskId}", category, taskId);
         }
     }
 
@@ -109,7 +124,7 @@ public class BackgroundTaskManager : IBackgroundTaskManager
                 await StopAsync(category, item.Id);
             }
         }
-        _logger.LogInformation("All tasks stopped for category: {Category}", category);
+        _logger.LogDebug("All tasks stopped for category: {Category}", category);
     }
 
     public async Task StopAsync()
@@ -118,10 +133,8 @@ public class BackgroundTaskManager : IBackgroundTaskManager
         {
             await StopAsync(item.Category, item.Id);
         }
-        _logger.LogInformation("All tasks stopped across all categories");
+        _logger.LogDebug("All tasks stopped across all categories");
     }
-
-    public string[] GetActiveTaskIds(TaskCategory category) => [.. _state.GetAllTasks().Where(k => k.Category == category).Select(k => k.Id)];
 
     public async ValueTask DisposeAsync()
     {

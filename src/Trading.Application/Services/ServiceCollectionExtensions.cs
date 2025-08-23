@@ -1,6 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
+using Trading.Application.DomainEventHandlers;
+using Trading.Application.IntegrationEvents.EventHandlers;
 using Trading.Application.Services.Alerts;
-using Trading.Application.Services.Common;
+using Trading.Application.Services.Shared;
 using Trading.Application.Services.Trading;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Services.Trading.Executors;
@@ -20,14 +22,18 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<TopSellExecutor>();
         services.AddSingleton<FutureProcessor>();
         services.AddSingleton<IAccountProcessorFactory, AccountProcessorFactory>();
-        services.AddSingleton<IBackgroundTaskManager, BackgroundTaskManager>();
-        services.AddSingleton<IBackgroundTaskState, BackgroundTaskState>();
+        services.AddSingleton<ITaskManager, BaseTaskManager>();
+        services.AddSingleton<GlobalState>();
         services.AddSingleton<IExecutorFactory, ExecutorFactory>();
+        services.AddTransient<SymbolChangedEventHandler>();
+        services.AddSingleton<IAlertNotificationService, AlertNotificationService>();
         services.AddSingleton<IKlineStreamManager, KlineStreamManager>();
-        services.AddSingleton<IStrategyStateManager, StrategyStateManager>();
+        services.AddSingleton<IStrategyTaskManager, StrategyTaskManager>();
+        services.AddSingleton<IAlertTaskManager, AlertTaskManager>();
         services.AddSingleton<JavaScriptEvaluator>();
         services.AddSingleton<SpotProcessor>();
-        services.AddSingleton<StrategyDispatchService>();
+        services.AddSingleton<StrategyEventHandler>();
+        services.AddSingleton<KlineClosedEventHandler>();
         return services;
     }
 

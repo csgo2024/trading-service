@@ -11,6 +11,7 @@ public class HelpCommandHandler : ICommandHandler
     public const string HelpText = """
 *基础命令:*
 /help \- 显示此帮助信息
+/debug \- 显示运行状态
 /strategy \- [create\|delete\|pause\|resume] 策略管理
 /alert \- [create\|delete\|empty\|pause\|resume] 警报相关
 
@@ -36,7 +37,7 @@ public class HelpCommandHandler : ICommandHandler
   "Volatility": 0.2,
   "Interval": "1d",
   "AccountType": "Spot",
-  "StopLossExpression": "low<=100000"
+  "StopLossExpression": "low<=1"
 }`
 
 2\. 合约做空策略 \(TopSell\)
@@ -48,7 +49,7 @@ public class HelpCommandHandler : ICommandHandler
   "Interval": "1d",
   "AccountType": "Future",
   "StrategyType": "TopSell",
-  "StopLossExpression": "high>=100000"
+  "StopLossExpression": "high>=1000000"
 }`
 
 3\. WebSocket合约做空策略 \(CloseSell\)
@@ -60,7 +61,7 @@ public class HelpCommandHandler : ICommandHandler
   "Interval": "4h",
   "AccountType": "Future",
   "StrategyType": "CloseSell",
-  "StopLossExpression": "close >= 100000"
+  "StopLossExpression": "close >= 1000000"
 }`
 
 4\. WebSocket合约做多策略 \(CloseBuy\)
@@ -72,7 +73,7 @@ public class HelpCommandHandler : ICommandHandler
   "Interval": "4h",
   "AccountType": "Future",
   "StrategyType": "CloseBuy",
-  "StopLossExpression": "close <= 60000"
+  "StopLossExpression": "close <= 1"
 }`
 
 删除策略:
