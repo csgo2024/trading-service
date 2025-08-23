@@ -23,6 +23,13 @@ public class KlineClosedEventHandler2 : INotificationHandler<KlineClosedEvent>
         _globalState = globalState;
     }
 
+    /// <summary>
+    /// Kline关闭时，检查所有Alert是否满足触发条件
+    /// 并检查对应的Alert是否是Paused状态，如果是则Resume
+    /// </summary>
+    /// <param name="event"></param>
+    /// <param name="cancellationToken"></param>
+    /// <returns></returns>
     public virtual async Task Handle(KlineClosedEvent @event, CancellationToken cancellationToken)
     {
         var alerts = await _alertRepository.GetAllAsync();
@@ -39,6 +46,7 @@ public class KlineClosedEventHandler2 : INotificationHandler<KlineClosedEvent>
                 }
                 else if (alert.Status == Common.Enums.Status.Running)
                 {
+                    // 立即检查Alert是否满足触发条件，不再等待对应的Task去检查，确保在Kline关闭时能第一时间触发
                     await _alertNotificationService.SendNotification(alert, @event.Kline, cancellationToken);
                 }
 
