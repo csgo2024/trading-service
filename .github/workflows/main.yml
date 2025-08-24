@@ -33,7 +33,7 @@ jobs:
 
       - name: Run tests
         timeout-minutes: 15
-        run: dotnet test Trading.sln --configuration ${{ env.BUILD_CONFIGURATION }}
+        run: dotnet test Trading.sln --no-build --configuration ${{ env.BUILD_CONFIGURATION }}
 
   sync-to-azure:
     name: 🔄 Sync to Azure DevOps
