@@ -71,7 +71,7 @@ public class StrategyCommandHandler : ICommandHandler
         {
             var (emoji, status) = strategy.Status.GetStatusInfo();
             var text = $"""
-            Status: {status} {emoji}
+            Status: {status} {emoji} AutoReset: {strategy.AutoReset}
             OpenPrice: {(strategy.OpenPrice.HasValue ? strategy.OpenPrice : "-")} / TargetPrice: {strategy.TargetPrice}
             Volatility: {strategy.Volatility:P2}
             Amount: {strategy.Amount} 💰 / Quantity: {strategy.Quantity}
