@@ -32,6 +32,11 @@ public class OpenSellExecutor : BaseExecutor
             {
                 return;
             }
+            if (strategy.OpenPrice is null || strategy.TargetPrice <= 0 || strategy.Quantity <= 0)
+            {
+                // First time setup
+                await UpdateStrategyPricing(accountProcessor, strategy, currentKline.OpenPrice, ct);
+            }
             if (strategy.AutoReset)
             {
                 await CancelExistingOrder(accountProcessor, strategy, ct);

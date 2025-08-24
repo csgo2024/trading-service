@@ -258,7 +258,8 @@ public abstract class BaseExecutor
         if (DateTime.UtcNow > close && strategy.AutoReset)
         {
             Log(LogLevel.Information, strategy, true, "New {Interval}-interval started, fetching latest kline and will try to cancel previous order if any.", strategy.Interval);
+            return true;
         }
-        return DateTime.UtcNow > close;
+        return false;
     }
 }
