@@ -1,4 +1,5 @@
 using Binance.Net.Enums;
+using Binance.Net.Interfaces;
 using Binance.Net.Objects.Models;
 using CryptoExchange.Net.Objects;
 using Microsoft.Extensions.Logging;
@@ -11,6 +12,7 @@ using Trading.Common.Helpers;
 using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
+using Trading.Exchange.Binance.Helpers;
 
 namespace Trading.Application.Services.Trading.Executors;
 
@@ -34,12 +36,30 @@ public abstract class BaseExecutor
         _globalState = globalState;
     }
 
+    protected void Log(LogLevel level, Strategy strategy, bool disableNotification, string? message, params object?[] args)
+    {
+        var telegramScope = new TelegramLoggerScope
+        {
+            Title = $"📊 {strategy.AccountType}-{strategy.Symbol}-{strategy.Interval}-{strategy.StrategyType}",
+            DisableNotification = disableNotification
+        };
+
+        message = $"""
+        {TelegramLogger.GetEmoji(level)} {level} ({DateTime.UtcNow.AddHours(8):yyyy-MM-dd HH:mm:ss})
+        {message}
+        """;
+        using (_logger.BeginScope(telegramScope))
+        {
+            _logger.Log(level, message, args);
+        }
+    }
+
     public abstract StrategyType StrategyType { get; }
     private static Task<WebCallResult<BinanceOrderBase>> PlaceOrderAsync(IAccountProcessor accountProcessor,
                                                                          Strategy strategy,
                                                                          CancellationToken ct)
     {
-        if (strategy.StrategyType == StrategyType.TopSell || strategy.StrategyType == StrategyType.CloseSell)
+        if (strategy.StrategyType == StrategyType.OpenSell || strategy.StrategyType == StrategyType.CloseSell)
         {
             return accountProcessor.PlaceShortOrderAsync(strategy.Symbol, strategy.Quantity, strategy.TargetPrice, TimeInForce.GoodTillCanceled, ct);
         }
@@ -50,40 +70,11 @@ public abstract class BaseExecutor
                                                                         decimal price,
                                                                         CancellationToken ct)
     {
-        if (strategy.StrategyType == StrategyType.TopSell || strategy.StrategyType == StrategyType.CloseSell)
+        if (strategy.StrategyType == StrategyType.OpenSell || strategy.StrategyType == StrategyType.CloseSell)
         {
             return accountProcessor.StopShortOrderAsync(strategy.Symbol, strategy.Quantity, price, ct);
         }
         return accountProcessor.StopLongOrderAsync(strategy.Symbol, strategy.Quantity, price, ct);
-    }
-    private async Task<(bool, WebCallResult<T>?)> ExecuteWithRetry<T>(Func<Task<WebCallResult<T>>> operation, Strategy strategy, CancellationToken ct)
-    {
-        var MAX_RETRIES = 1;
-        WebCallResult<T>? result = null;
-        for (var attempt = 0; attempt < MAX_RETRIES; attempt++)
-        {
-            result = await operation();
-            if (result.Success)
-            {
-                return (true, result);
-            }
-            if (attempt < MAX_RETRIES - 1)
-            {
-                var delay = TimeSpan.FromSeconds(Math.Pow(2, attempt + 1));
-                _logger.LogWarning(
-                    "[{StrategyType}-{AccountType}-{Symbol}] Attempt {RetryCount} of {MaxRetries} failed. Retrying in {Delay} seconds. Error: {Error}",
-                    strategy.StrategyType,
-                    strategy.AccountType,
-                    strategy.Symbol,
-                    attempt + 1,
-                    MAX_RETRIES,
-                    delay.TotalSeconds,
-                    result.Error?.Message);
-                await Task.Delay(delay, ct);
-            }
-        }
-
-        return (false, result);
     }
     public virtual async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
@@ -102,23 +93,12 @@ public abstract class BaseExecutor
                 _globalState.TryGetStrategy(strategyId, out var strategy);
                 if (strategy != null)
                 {
-                    if (strategy.OrderPlacedTime is null)
-                    {
-                        await ExecuteAsync(accountProcessor, strategy, cancellationToken);
-                    }
-                    else
-                    {
-                        var elapsed = (DateTime.UtcNow - strategy.OrderPlacedTime.Value).TotalSeconds;
-                        if (elapsed >= 2 * 60) // 2 minutes
-                        {
-                            await ExecuteAsync(accountProcessor, strategy, cancellationToken);
-                        }
-                    }
+                    await ExecuteAsync(accountProcessor, strategy, cancellationToken);
                     // after ExecuteAsync is called, orderPlacedTime has been updated
                     // so we need to update strategy in global state to ensure we don't execute too frequently
                     _globalState.AddOrUpdateStrategy(strategyId, strategy);
                 }
-                await Task.Delay(TimeSpan.FromMilliseconds(200), cancellationToken);
+                await Task.Delay(TimeSpan.FromMinutes(1), cancellationToken);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -138,23 +118,20 @@ public abstract class BaseExecutor
         {
             return;
         }
-
-        var cancelResult = await accountProcessor.CancelOrderAsync(strategy.Symbol, strategy.OrderId.Value, ct);
-        if (cancelResult.Success)
+        if (strategy.OrderPlacedTime.HasValue && strategy.HasOpenOrder)
         {
-            _logger.LogInformation("[{AccountType}-{Symbol}] Successfully cancelled order, OrderId: {OrderId}",
-                                   strategy.AccountType,
-                                   strategy.Symbol,
-                                   strategy.OrderId);
-            strategy.HasOpenOrder = false;
-            strategy.OrderId = null;
-            strategy.OrderPlacedTime = null;
-            return;
+            var cancelResult = await accountProcessor.CancelOrderAsync(strategy.Symbol, strategy.OrderId.Value, ct);
+            if (cancelResult.Success)
+            {
+                Log(LogLevel.Information, strategy, true, "Order cancelled successfully, OrderId={OrderId}", strategy.OrderId);
+                strategy.HasOpenOrder = false;
+                strategy.OrderId = null;
+                strategy.OrderPlacedTime = null;
+                return;
+            }
+            Log(LogLevel.Error, strategy, false, "Failed to cancel order. Error: {error}", cancelResult.Error?.Message);
         }
-        _logger.LogError("[{AccountType}-{Symbol}] Failed to cancel order. Error: {ErrorMessage}",
-                         strategy.AccountType,
-                         strategy.Symbol,
-                         cancelResult.Error?.Message);
+
     }
     public virtual async Task TryStopOrderAsync(IAccountProcessor accountProcessor, Strategy strategy, decimal stopPrice, CancellationToken ct)
     {
@@ -162,27 +139,16 @@ public abstract class BaseExecutor
         {
             return;
         }
-        var (success, result) = await ExecuteWithRetry(() => StopOrderAsync(accountProcessor, strategy, stopPrice, ct), strategy, ct);
-        if (success)
+        var result = await StopOrderAsync(accountProcessor, strategy, stopPrice, ct);
+        if (result.Success)
         {
-            _logger.LogInformationWithAlert(
-                "[{AccountType}-{Symbol}-{StrateType}] Triggering stop loss at price {Price}",
-                strategy.AccountType,
-                strategy.Symbol,
-                strategy.StrategyType,
-                stopPrice);
+            Log(LogLevel.Information, strategy, false, "Triggering stop loss at price {Price}", stopPrice);
             strategy.OrderId = null;
             strategy.OrderPlacedTime = null;
             strategy.HasOpenOrder = false;
             return;
         }
-        _logger.LogErrorWithAlert("""
-        [{StrategyType}-{AccountType}-{Symbol}] Failed to stop order.
-        StrategyId: {StrategyId}
-        Error: {ErrorMessage}
-        TargetPrice:{Price}, Quantity: {Quantity}.
-        """, strategy.StrategyType, strategy.AccountType, strategy.Symbol, strategy.Id,
-            result?.Error?.Message, stopPrice, strategy.Quantity);
+        Log(LogLevel.Error, strategy, false, "Failed to stop order: {OrderId} at price: {Price}, Error: {ErrorMessage}", strategy.OrderId, stopPrice, result.Error?.Message);
     }
     public virtual async Task CheckOrderStatus(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
@@ -199,10 +165,8 @@ public abstract class BaseExecutor
             switch (orderResult.Data.Status)
             {
                 case OrderStatus.Filled:
-                    _logger.LogInformationWithAlert("[{AccountType}-{Symbol}] Order filled successfully at price: {Price}.",
-                                                    strategy.AccountType,
-                                                    strategy.Symbol,
-                                                    strategy.TargetPrice);
+                    Log(LogLevel.Information, strategy, false, "Order filled successfully at price={Price}", strategy.TargetPrice);
+
                     strategy.HasOpenOrder = false;
                     // Once Order filled, replace executed quantity of the order.
                     strategy.Quantity = orderResult.Data.QuantityFilled;
@@ -211,23 +175,17 @@ public abstract class BaseExecutor
                 case OrderStatus.Canceled:
                 case OrderStatus.Expired:
                 case OrderStatus.Rejected:
-                    _logger.LogInformation("[{AccountType}-{Symbol}] Order {Status}. Will try to place new order.",
-                                           strategy.AccountType,
-                                           strategy.Symbol,
-                                           orderResult.Data.Status);
+                    Log(LogLevel.Information, strategy, true, "Order {Status}. Will try to place new.", orderResult.Data.Status);
+
                     strategy.HasOpenOrder = false;
                     strategy.OrderId = null;
                     strategy.OrderPlacedTime = null;
                     break;
-                default:
-                    break;
             }
             return;
         }
-        _logger.LogError("[{AccountType}-{Symbol}] Failed to check order status, Error: {ErrorMessage}.",
-                         strategy.AccountType,
-                         strategy.Symbol,
-                         orderResult.Error?.Message);
+
+        Log(LogLevel.Error, strategy, false, "Failed to check order status, Error: {ErrorMessage}", orderResult.Error?.Message);
     }
     public virtual async Task TryPlaceOrder(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
@@ -243,28 +201,18 @@ public abstract class BaseExecutor
         // always set order placed time when placing order.
         strategy.OrderPlacedTime = DateTime.UtcNow;
 
-        var (success, result) = await ExecuteWithRetry(() => PlaceOrderAsync(accountProcessor, strategy, ct), strategy, ct);
-        if (success)
+        var result = await PlaceOrderAsync(accountProcessor, strategy, ct);
+        if (result.Success)
         {
-            _logger.LogInformation("[{StrategyType}-{AccountType}-{Symbol}] Order placed successfully. Quantity: {Quantity}, Price: {Price}.",
-                                   strategy.StrategyType,
-                                   strategy.AccountType,
-                                   strategy.Symbol,
-                                   strategy.Quantity,
-                                   strategy.TargetPrice);
-            strategy.OrderId = result!.Data.Id;
+            Log(LogLevel.Information, strategy, true, "Order placed at price {Price}, quantity: {Quantity}", price, quantity);
+            strategy.OrderId = result.Data.Id;
             strategy.HasOpenOrder = true;
             strategy.UpdatedAt = DateTime.UtcNow;
             return;
         }
-
-        _logger.LogErrorWithAlert("""
-        [{StrategyType}-{AccountType}-{Symbol}] Failed to place order.
-        StrategyId: {StrategyId}
-        Error: {ErrorMessage}
-        TargetPrice:{Price}, Quantity: {Quantity}.
-        """, strategy.StrategyType, strategy.AccountType, strategy.Symbol, strategy.Id,
-            result?.Error?.Message, price, quantity);
+        Log(LogLevel.Error, strategy, false,
+            "Failed to place order at price: {Price}, quantity: {Quantity}. Error: {ErrorMessage}", strategy.TargetPrice,
+            quantity, result?.Error?.Message);
     }
 
     public virtual Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event, CancellationToken cancellationToken)
@@ -282,5 +230,35 @@ public abstract class BaseExecutor
                                                        @event.Kline.ClosePrice,
                                                        @event.Kline.HighPrice,
                                                        @event.Kline.LowPrice);
+    }
+    public virtual async Task<IBinanceKline?> FetchLatestKline(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
+    {
+        var klineInterval = BinanceHelper.ConvertToKlineInterval(strategy.Interval!);
+        var kLines = await accountProcessor.GetKlines(strategy.Symbol, klineInterval, limit: 1, ct: ct);
+
+        if (!kLines.Success || kLines.Data.Length == 0)
+        {
+            Log(LogLevel.Error, strategy, false, "Failed to get latest Kline, Error: {ErrorMessage}", kLines.Error?.Message);
+            return null;
+        }
+
+        return kLines.Data.First();
+    }
+    public virtual bool ShouldFetchLatestKline(Strategy strategy)
+    {
+        if (strategy.OpenPrice is null || strategy.TargetPrice <= 0 || strategy.Quantity <= 0)
+        {
+            return true;
+        }
+        if (!strategy.OrderPlacedTime.HasValue)
+        {
+            return true;
+        }
+        var (_, close) = BinanceHelper.GetKLinePeriod(strategy.OrderPlacedTime.Value, strategy.Interval!);
+        if (DateTime.UtcNow > close && strategy.AutoReset)
+        {
+            Log(LogLevel.Information, strategy, true, "New {Interval}-interval started, fetching latest kline and will try to cancel previous order if any.", strategy.Interval);
+        }
+        return DateTime.UtcNow > close;
     }
 }

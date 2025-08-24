@@ -37,6 +37,7 @@ public class CloseBuyExecutor : BaseExecutor
             strategy.Quantity = BinanceHelper.AdjustQuantityBystepSize(strategy.Amount / strategy.TargetPrice, filterData.Item2);
             await TryPlaceOrder(accountProcessor, strategy, cancellationToken);
         }
+        await base.HandleKlineClosedEvent(accountProcessor, strategy, @event, cancellationToken);
     }
     public override async Task ExecuteAsync(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {

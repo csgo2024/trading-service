@@ -37,7 +37,7 @@ public class TestDataInitializer
                 Amount = 100,
                 Volatility = 0.1m,
                 AccountType = AccountType.Spot,
-                StrategyType = StrategyType.BottomBuy,
+                StrategyType = StrategyType.OpenBuy,
                 Status = Status.Running,
                 CreatedAt = DateTime.UtcNow.AddDays(-1),
                 Leverage = 1
@@ -49,7 +49,7 @@ public class TestDataInitializer
                 Amount = 200,
                 Volatility = 0.2m,
                 AccountType = AccountType.Future,
-                StrategyType = StrategyType.BottomBuy,
+                StrategyType = StrategyType.OpenBuy,
                 Status = Status.Paused,
                 CreatedAt = DateTime.UtcNow,
                 Leverage = 2

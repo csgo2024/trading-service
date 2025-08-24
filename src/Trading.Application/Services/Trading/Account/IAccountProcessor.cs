@@ -12,6 +12,16 @@ public interface IAccountProcessor
     Task<WebCallResult<BinanceOrderBase>> GetOrder(string symbol,
                                                    long? orderId,
                                                    CancellationToken ct);
+    /// <summary>
+    /// If startTime and endTime are not sent, the most recent klines are returned.
+    /// </summary>
+    /// <param name="symbol"></param>
+    /// <param name="interval"></param>
+    /// <param name="startTime">https://developers.binance.com/docs/derivatives/usds-margined-futures/market-data/rest-api/Kline-Candlestick-Data</param>
+    /// <param name="endTime"></param>
+    /// <param name="limit"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
     Task<WebCallResult<IBinanceKline[]>> GetKlines(string symbol,
                                                               KlineInterval interval,
                                                               DateTime? startTime = null,

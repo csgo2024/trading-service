@@ -110,4 +110,110 @@ public class BinanceHelperTests
             BinanceHelper.AdjustQuantityBystepSize(quantity, filter));
         Assert.Equal(expectedMessage, exception.Message);
     }
+
+    [Fact]
+    public void GetKLinePeriod_ShouldReturnCorrectMinutePeriod()
+    {
+        var utcTime = new DateTime(2025, 8, 24, 10, 15, 30, DateTimeKind.Utc);
+        var interval = "15m"; // 15-minute interval
+        var result = BinanceHelper.GetKLinePeriod(utcTime, interval);
+
+        // Check that the start time is 10:15:00 and the end time is 10:30:00
+        var expectedStart = new DateTime(2025, 8, 24, 10, 15, 0, DateTimeKind.Utc);
+        var expectedEnd = new DateTime(2025, 8, 24, 10, 30, 0, DateTimeKind.Utc);
+
+        Assert.Equal(expectedStart, result.Open);
+        Assert.Equal(expectedEnd, result.Close);
+    }
+    [Fact]
+    public void GetKLinePeriod_ShouldReturnCorrectHourPeriod()
+    {
+        var utcTime = new DateTime(2025, 8, 24, 10, 15, 30, DateTimeKind.Utc);
+        var interval = "1h"; // 1-hour interval
+        var result = BinanceHelper.GetKLinePeriod(utcTime, interval);
+
+        // The expected start time should be the top of the hour, i.e., 10:00:00
+        var expectedStart = new DateTime(2025, 8, 24, 10, 0, 0, DateTimeKind.Utc);
+        var expectedEnd = new DateTime(2025, 8, 24, 11, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(expectedStart, result.Open);
+        Assert.Equal(expectedEnd, result.Close);
+    }
+
+    [Fact]
+    public void GetKLinePeriod_ShouldReturnCorrectDayPeriod()
+    {
+        var utcTime = new DateTime(2025, 8, 24, 10, 15, 30, DateTimeKind.Utc);
+        var interval = "1d"; // 1-day interval
+        var result = BinanceHelper.GetKLinePeriod(utcTime, interval);
+
+        // The expected start time should be the start of the day: 2025-08-24 00:00:00
+        var expectedStart = new DateTime(2025, 8, 24, 0, 0, 0, DateTimeKind.Utc);
+        var expectedEnd = new DateTime(2025, 8, 25, 0, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(expectedStart, result.Open);
+        Assert.Equal(expectedEnd, result.Close);
+    }
+    [Fact]
+    public void GetKLinePeriod_ShouldReturnCorrectWeekPeriod()
+    {
+        var utcTime = new DateTime(2025, 8, 24, 10, 15, 30, DateTimeKind.Utc);
+        var interval = "1w"; // 1-week interval
+        var result = BinanceHelper.GetKLinePeriod(utcTime, interval);
+
+        // The week starts on Monday, so for 2025-08-24 (Sunday), the week starts on 2025-08-18 (Monday)
+        var expectedStart = new DateTime(2025, 8, 18, 0, 0, 0, DateTimeKind.Utc);
+        var expectedEnd = new DateTime(2025, 8, 25, 0, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(expectedStart, result.Open);
+        Assert.Equal(expectedEnd, result.Close);
+    }
+    [Fact]
+    public void GetKLinePeriod_ShouldReturnCorrectMultipleWeeksPeriod()
+    {
+        var utcTime = new DateTime(2025, 8, 24, 10, 15, 30, DateTimeKind.Utc);
+        var interval = "2w"; // 2-week interval
+        var result = BinanceHelper.GetKLinePeriod(utcTime, interval);
+
+        // For 2025-08-24 (Sunday), the first week starts on 2025-08-18, and 2 weeks later the period should end on 2025-09-01
+        var expectedStart = new DateTime(2025, 8, 18, 0, 0, 0, DateTimeKind.Utc);
+        var expectedEnd = new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(expectedStart, result.Open);
+        Assert.Equal(expectedEnd, result.Close);
+    }
+    [Fact]
+    public void GetKLinePeriod_ShouldThrowArgumentExceptionForInvalidInterval()
+    {
+        var utcTime = new DateTime(2025, 8, 24, 10, 15, 30, DateTimeKind.Utc);
+        var interval = "xyz"; // Invalid interval
+        var exception = Assert.Throws<FormatException>(() => BinanceHelper.GetKLinePeriod(utcTime, interval));
+    }
+    [Fact]
+    public void GetKLinePeriod_ShouldHandleMonthTransitionCorrectly()
+    {
+        var utcTime = new DateTime(2025, 8, 31, 23, 59, 59, DateTimeKind.Utc);
+        var interval = "1d"; // 1-day interval
+        var result = BinanceHelper.GetKLinePeriod(utcTime, interval);
+
+        // Transitioning from August to September, start should be 2025-08-31 00:00:00, end should be 2025-09-01 00:00:00
+        var expectedStart = new DateTime(2025, 8, 31, 0, 0, 0, DateTimeKind.Utc);
+        var expectedEnd = new DateTime(2025, 9, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(expectedStart, result.Open);
+        Assert.Equal(expectedEnd, result.Close);
+    }
+    [Fact]
+    public void GetKLinePeriod_ShouldHandleMidnightEdgeCase()
+    {
+        var utcTime = new DateTime(2025, 8, 24, 0, 0, 0, DateTimeKind.Utc);
+        var interval = "1d"; // 1-day interval
+        var result = BinanceHelper.GetKLinePeriod(utcTime, interval);
+
+        var expectedStart = new DateTime(2025, 8, 24, 0, 0, 0, DateTimeKind.Utc);
+        var expectedEnd = new DateTime(2025, 8, 25, 0, 0, 0, DateTimeKind.Utc);
+
+        Assert.Equal(expectedStart, result.Open);
+        Assert.Equal(expectedEnd, result.Close);
+    }
 }

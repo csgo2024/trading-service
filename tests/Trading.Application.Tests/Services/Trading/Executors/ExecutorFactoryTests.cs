@@ -34,9 +34,9 @@ public class ExecutorFactoryTests
         var accountProcessorFactory = new Mock<IAccountProcessorFactory>();
         services.AddSingleton(accountProcessorFactory.Object);
         // Register executors
-        services.AddScoped<BottomBuyExecutor>();
         services.AddScoped<DCABuyExecutor>();
-        services.AddScoped<TopSellExecutor>();
+        services.AddScoped<OpenBuyExecutor>();
+        services.AddScoped<OpenSellExecutor>();
         services.AddScoped<JavaScriptEvaluator>();
         services.AddSingleton<ITaskManager, BaseTaskManager>();
         services.AddSingleton<IExecutorFactory, ExecutorFactory>();
@@ -48,9 +48,9 @@ public class ExecutorFactoryTests
     }
 
     [Theory]
-    [InlineData(StrategyType.BottomBuy, typeof(BottomBuyExecutor))]
+    [InlineData(StrategyType.OpenBuy, typeof(OpenBuyExecutor))]
+    [InlineData(StrategyType.OpenSell, typeof(OpenSellExecutor))]
     [InlineData(StrategyType.DCA, typeof(DCABuyExecutor))]
-    [InlineData(StrategyType.TopSell, typeof(TopSellExecutor))]
     public void GetExecutor_WithValidType_ShouldReturnCorrectExecutor(StrategyType type, Type expectedType)
     {
         // Act
@@ -78,7 +78,7 @@ public class ExecutorFactoryTests
     public void Constructor_ShouldInitializeAllStrategies()
     {
         // Arrange
-        var expectedStrategies = new[] { StrategyType.BottomBuy, StrategyType.DCA, StrategyType.TopSell };
+        var expectedStrategies = new[] { StrategyType.OpenBuy, StrategyType.DCA, StrategyType.OpenSell };
 
         // Act
         var results = expectedStrategies.Select(_factory.GetExecutor);

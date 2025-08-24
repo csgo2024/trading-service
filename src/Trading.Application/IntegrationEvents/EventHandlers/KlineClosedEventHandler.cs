@@ -1,4 +1,3 @@
-using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Trading.Application.IntegrationEvents.Events;
@@ -40,8 +39,6 @@ public class KlineClosedEventHandler : INotificationHandler<KlineClosedEvent>
         {
             var executor = _executorFactory.GetExecutor(strategy.StrategyType);
             var accountProcessor = _accountProcessorFactory.GetAccountProcessor(strategy.AccountType);
-            _logger.LogDebug("Handling KlineClosedEvent for strategy {Strategy} with executor {Executor}",
-                JsonSerializer.Serialize(strategy), executor?.GetType().Name);
             if (executor != null && accountProcessor != null)
             {
                 await executor.HandleKlineClosedEvent(accountProcessor, strategy, @event, cancellationToken);

@@ -32,6 +32,7 @@ public class CreateStrategyCommandHandler : IRequestHandler<CreateStrategyComman
             request.AccountType,
             request.Interval,
             request.StrategyType,
+            request.AutoReset,
             request.StopLossExpression
         );
         entity = await _strategyRepository.AddAsync(entity, cancellationToken);

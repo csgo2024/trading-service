@@ -15,11 +15,11 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddTradingServices(this IServiceCollection services)
     {
         services.AddSingleton<AlertNotificationService>();
-        services.AddSingleton<BottomBuyExecutor>();
         services.AddSingleton<DCABuyExecutor>();
         services.AddSingleton<CloseSellExecutor>();
         services.AddSingleton<CloseBuyExecutor>();
-        services.AddSingleton<TopSellExecutor>();
+        services.AddSingleton<OpenBuyExecutor>();
+        services.AddSingleton<OpenSellExecutor>();
         services.AddSingleton<FutureProcessor>();
         services.AddSingleton<IAccountProcessorFactory, AccountProcessorFactory>();
         services.AddSingleton<ITaskManager, BaseTaskManager>();

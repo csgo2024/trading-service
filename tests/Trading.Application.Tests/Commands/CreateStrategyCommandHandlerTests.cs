@@ -35,7 +35,7 @@ public class CreateStrategyCommandHandlerTests
             Volatility = 0.1m,
             AccountType = AccountType.Spot,
             StopLossExpression = "close > open",
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Interval = "1d"
         };
 
@@ -83,7 +83,7 @@ public class CreateStrategyCommandHandlerTests
             Amount = amount,
             Volatility = Volatility,
             AccountType = AccountType.Spot,
-            StrategyType = StrategyType.BottomBuy
+            StrategyType = StrategyType.OpenBuy
         };
 
         // Act & Assert
@@ -114,7 +114,7 @@ public class CreateStrategyCommandHandlerTests
             Volatility = 0.1m,
             Leverage = leverage,
             AccountType = AccountType.Future,
-            StrategyType = StrategyType.BottomBuy
+            StrategyType = StrategyType.OpenBuy
         };
 
         // Act & Assert
@@ -124,7 +124,7 @@ public class CreateStrategyCommandHandlerTests
         Assert.Contains("Leverage must be between 1 and 20", exception.Message);
     }
     [Theory]
-    [InlineData(StrategyType.TopSell)]
+    [InlineData(StrategyType.OpenSell)]
     [InlineData(StrategyType.CloseSell)]
     public async Task Handle_WhenAccountTypeIsSpot_StrategyIsSell_ShouldThrowValidationException(StrategyType strategyType)
     {
@@ -144,32 +144,7 @@ public class CreateStrategyCommandHandlerTests
         var exception = await Assert.ThrowsAsync<ValidationException>(
             () => _handler.Handle(command, CancellationToken.None));
 
-        Assert.Contains("Spot account type is not supported for TopSell or CloseSell strategy.", exception.Message);
-    }
-
-    [Theory]
-    [InlineData(StrategyType.TopSell)]
-    [InlineData(StrategyType.BottomBuy)]
-    public async Task Handle_WhenStrategyIsTopSellOrBottomBut_IntervalIsNot1d_ShouldThrowValidationException(StrategyType strategyType)
-    {
-        // Arrange
-        var command = new CreateStrategyCommand
-        {
-            Symbol = "BTCUSDT",
-            Amount = 100,
-            Volatility = 0.1m,
-            Leverage = 5,
-            Interval = "1w",
-            AccountType = AccountType.Future,
-            StopLossExpression = "close > open",
-            StrategyType = strategyType
-        };
-
-        // Act & Assert
-        var exception = await Assert.ThrowsAsync<ValidationException>(
-            () => _handler.Handle(command, CancellationToken.None));
-
-        Assert.Contains("Interval must be '1d' for BottomBuy or TopSell strategy.", exception.Message);
+        Assert.Contains("Spot account type is not supported for OpenSell or CloseSell strategy.", exception.Message);
     }
 
     [Fact]
@@ -181,7 +156,7 @@ public class CreateStrategyCommandHandlerTests
             Symbol = "BTCUSDT",
             Amount = 100,
             Volatility = 0.1m,
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Interval = "1d",
             StopLossExpression = "close > open"
         };

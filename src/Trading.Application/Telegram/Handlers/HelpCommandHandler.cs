@@ -15,21 +15,15 @@ public class HelpCommandHandler : ICommandHandler
 /strategy \- [create\|delete\|pause\|resume] 策略管理
 /alert \- [create\|delete\|empty\|pause\|resume] 警报相关
 
-*策略管理*
-
 *策略类型说明*
-
-1\. RestClient策略
-\- *BottomBuy* 和 *TopSell*: 基于当天开盘价格执行的策略
-\- 特点：不需要等待收盘，第二天自动管理
-
-2\. WebSocket策略
-\- *CloseBuy* 和 *CloseSell*: 基于指定周期收盘价格执行的策略
-\- ⚠️ 注意：必须等待当前周期收盘后才会执行下单
+  \- *OpenBuy* 和 *OpenSell*: 基于指定周期开盘价格执行的策略
+  \- 特点：不需要等待收盘，自动获取当前周期的开盘价格进行下单，如果AutoReset为true，则会在每个新周期开始时取消未成交订单并重新下单
+  \- *CloseBuy* 和 *CloseSell*: 基于指定周期收盘价格执行的策略
+  \- ⚠️ 注意：必须等待当前周期收盘后才会执行下单，不会在新周期开始时自动更新价格下单
 
 *策略示例*
 
-1\. 现货做多策略 \(BottomBuy\)
+1\. 现货做多策略 \(OpenBuy\)
 `/strategy create 
 {
   "Symbol": "BTCUSDT",
@@ -37,10 +31,10 @@ public class HelpCommandHandler : ICommandHandler
   "Volatility": 0.2,
   "Interval": "1d",
   "AccountType": "Spot",
-  "StopLossExpression": "low<=1"
+  "AutoReset": true
 }`
 
-2\. 合约做空策略 \(TopSell\)
+2\. 合约做空策略 \(OpenSell\)
 `/strategy create 
 {
   "Symbol": "BTCUSDT",
@@ -48,8 +42,8 @@ public class HelpCommandHandler : ICommandHandler
   "Volatility": 0.2,
   "Interval": "1d",
   "AccountType": "Future",
-  "StrategyType": "TopSell",
-  "StopLossExpression": "high>=1000000"
+  "StrategyType": "OpenSell",
+  "AutoReset": true
 }`
 
 3\. WebSocket合约做空策略 \(CloseSell\)

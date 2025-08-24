@@ -23,18 +23,16 @@
 ### 策略类型说明
 
 #### RestClient 策略
-- **BottomBuy** 和 **TopSell**: 基于当天开盘价格执行的策略
-- 特点：不需要等待收盘，第二天自动管理
-- 适用：日线级别交易
+- **OpenBuy** 和 **OpenSell**:  基于指定周期开盘价格执行的策略
+- 特点：不需要等待收盘，自动获取当前周期的开盘价格进行下单。如果AutoReset为true，则会在每个新周期开始时取消未成交订单并重新下单
 
 #### WebSocket 策略
 - **CloseBuy** 和 **CloseSell**: 基于指定周期收盘价格执行的策略
-- ⚠️ 注意：必须等待当前周期收盘后才会执行下单
-- 适用：更灵活的周期选择
+- ⚠️ 注意：必须等待当前周期收盘后才会执行下单, 不会在新周期开始时自动更新价格下单
 
 ### 策略示例
 
-#### 1. 现货做多策略 (BottomBuy)
+#### 1. 现货做多策略 (OpenBuy)
 ```json
 /strategy create {
     "Symbol": "BTCUSDT",
@@ -43,11 +41,11 @@
     "Interval": "1d",
     "Leverage": 5,
     "AccountType": "Spot",
-    "StrategyType": "BottomBuy"
+    "StrategyType": "OpenBuy"
 }
 ```
 
-#### 2. 合约做空策略 (TopSell)
+#### 2. 合约做空策略 (OpenSell)
 ```json
 /strategy create {
     "Symbol": "BTCUSDT",
@@ -56,7 +54,7 @@
     "Interval": "1d",
     "Leverage": 5,
     "AccountType": "Future",
-    "StrategyType": "TopSell"
+    "StrategyType": "OpenSell"
 }
 ```
 
