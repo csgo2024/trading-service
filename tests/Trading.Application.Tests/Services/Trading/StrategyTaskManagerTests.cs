@@ -55,7 +55,7 @@ public class StrategyTaskManagerTests
             Id = "test-id",
             AccountType = AccountType.Future,
             Symbol = "BTCUSDT",
-            StrategyType = StrategyType.BottomBuy
+            StrategyType = StrategyType.OpenBuy
         };
 
         _mockAccountProcessorFactory.Setup(f => f.GetAccountProcessor(_strategy.AccountType))
@@ -163,7 +163,7 @@ public class StrategyTaskManagerTests
             Id = "test-id",
             AccountType = AccountType.Future,
             Symbol = "BTCUSDT",
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             OrderId = 123
         };
 

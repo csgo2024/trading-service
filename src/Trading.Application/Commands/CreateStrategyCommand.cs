@@ -23,28 +23,23 @@ public class CreateStrategyCommand : IRequest<Strategy>, IValidatableObject
 
     public AccountType AccountType { get; set; } = AccountType.Spot;
 
-    public StrategyType StrategyType { get; set; } = StrategyType.BottomBuy;
+    public StrategyType StrategyType { get; set; } = StrategyType.OpenBuy;
 
     [Interval]
     public string? Interval { get; set; }
 
-    [JavaScript(Required = true)]
+    [JavaScript(Required = false)]
     public string StopLossExpression { get; set; } = string.Empty;
+
+    public bool AutoReset { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (AccountType == AccountType.Spot)
         {
-            if (StrategyType == StrategyType.TopSell || StrategyType == StrategyType.CloseSell)
+            if (StrategyType == StrategyType.OpenSell || StrategyType == StrategyType.CloseSell)
             {
-                yield return new ValidationResult("Spot account type is not supported for TopSell or CloseSell strategy.", [nameof(AccountType)]);
-            }
-        }
-        if (StrategyType == StrategyType.BottomBuy || StrategyType == StrategyType.TopSell)
-        {
-            if (string.IsNullOrWhiteSpace(Interval) || Interval != "1d")
-            {
-                yield return new ValidationResult("Interval must be '1d' for BottomBuy or TopSell strategy.", [nameof(Interval)]);
+                yield return new ValidationResult("Spot account type is not supported for OpenSell or CloseSell strategy.", [nameof(AccountType)]);
             }
         }
     }

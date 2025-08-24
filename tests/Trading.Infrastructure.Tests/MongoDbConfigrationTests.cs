@@ -16,7 +16,7 @@ public class MongoDbConfigrationTests
         {
             UpdatedAt = DateTime.Now,
             HasOpenOrder = false,
-            StrategyType = StrategyType.BottomBuy
+            StrategyType = StrategyType.OpenBuy
         };
 
         // Act

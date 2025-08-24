@@ -10,7 +10,10 @@ public class Strategy : BaseEntity
     public decimal TargetPrice { get; set; }
     public long? OrderId { get; set; }
     public bool HasOpenOrder { get; set; }
-    public bool RequireReset { get; set; } = true;
+    /// <summary>
+    /// If true, the strategy will automatically reset and fetch the latest kline data at the start of a new interval.
+    /// </summary>
+    public bool AutoReset { get; set; }
     public DateTime? OrderPlacedTime { get; set; }
     public int Amount { get; set; }
     public decimal Volatility { get; set; }
@@ -36,6 +39,7 @@ public class Strategy : BaseEntity
         AccountType accountType,
         string? interval,
         StrategyType strategyType,
+        bool autoReset,
         string stopLossExpression
     )
     {
@@ -49,6 +53,7 @@ public class Strategy : BaseEntity
         Volatility = volatility;
         CreatedAt = DateTime.Now;
         Status = Status.Running;
+        AutoReset = autoReset;
         StopLossExpression = stopLossExpression;
         AddDomainEvent(new StrategyCreatedEvent(this));
     }

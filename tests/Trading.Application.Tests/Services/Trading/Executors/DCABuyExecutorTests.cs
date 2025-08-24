@@ -64,7 +64,7 @@ public class DCABuyExecutorTests
             Id = "test-id",
             Symbol = "BTCUSDT",
             AccountType = AccountType.Spot,
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Amount = 1000,
             Volatility = 0.01m,
             HasOpenOrder = hasOpenOrder,

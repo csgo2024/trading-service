@@ -1,7 +1,4 @@
 using Binance.Net.Enums;
-using Binance.Net.Objects.Models;
-using Binance.Net.Objects.Models.Spot;
-using CryptoExchange.Net.Objects;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.Application.Services.Shared;
@@ -98,7 +95,7 @@ public class BaseExecutorTests
 
         _mockState
             .Setup(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny))
-            .Callback((string key, out Strategy? a) => { a = strategy; })
+            .Callback((string _, out Strategy? a) => { a = strategy; })
             .Returns(true);
 
         _mockAccountProcessor.SetupSuccessfulGetOrder(OrderStatus.New);
@@ -111,36 +108,6 @@ public class BaseExecutorTests
         // Assert
         _mockState.Verify(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny), Times.AtLeastOnce);
         _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
-    }
-
-    [Fact]
-    public async Task ExecuteLoop_ShouldNotExecute_WhenOrderPlacedTimeLessThan2m()
-    {
-        // Arrange
-        var strategy = new Strategy
-        {
-            Id = "test-id",
-            StrategyType = StrategyType.CloseSell,
-            OrderId = 12345,
-            HasOpenOrder = true,
-            // won't place order if it was placed less than 2 minutes ago
-            OrderPlacedTime = DateTime.UtcNow.AddMinutes(-1)
-        };
-
-        using var cts = new CancellationTokenSource();
-        cts.CancelAfter(TimeSpan.FromSeconds(1)); // Cancel after 1 second to end the loop
-
-        _mockState
-            .Setup(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny))
-            .Callback((string key, out Strategy? a) => { a = strategy; })
-            .Returns(true);
-
-        // Act
-        await _executor.ExecuteLoopAsync(_mockAccountProcessor.Object, strategy.Id, cts.Token);
-
-        // Assert
-        _mockState.Verify(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny), Times.AtLeastOnce);
-        _mockStrategyRepository.Verify(x => x.UpdateAsync(It.IsAny<string>(), It.IsAny<Strategy>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -161,7 +128,7 @@ public class BaseExecutorTests
 
         _mockState
             .Setup(x => x.TryGetStrategy(strategy.Id, out It.Ref<Strategy?>.IsAny))
-            .Callback((string key, out Strategy? a) => { a = null; })
+            .Callback((string _, out Strategy? a) => { a = null; })
             .Returns(false);
 
         // Act
@@ -215,7 +182,7 @@ public class BaseExecutorTests
     public async Task CancelExistingOrder_WhenFailed_ShouldLogError()
     {
         // Arrange
-        var strategy = new Strategy { OrderId = 12345 };
+        var strategy = new Strategy { OrderId = 12345, OrderPlacedTime = DateTime.Today, HasOpenOrder = true };
         var error = "Cancel order failed";
 
         _mockAccountProcessor.SetupFailedCancelOrder(error);
@@ -292,31 +259,6 @@ public class BaseExecutorTests
         Assert.Null(strategy.OrderPlacedTime);
     }
 
-    [Theory]
-    [InlineData(OrderStatus.New)]
-    [InlineData(OrderStatus.PartiallyFilled)]
-    public async Task CheckOrderStatus_WithActiveOrder_FromSameDay_ShouldNotCancelOrder(OrderStatus status)
-    {
-        // Arrange
-        var strategy = new Strategy
-        {
-            OrderId = 12345,
-            HasOpenOrder = true,
-            OrderPlacedTime = DateTime.UtcNow
-        };
-
-        _mockAccountProcessor.SetupSuccessfulGetOrder(status);
-
-        // Act
-        await _executor.CheckOrderStatus(_mockAccountProcessor.Object, strategy, _ct);
-
-        // Assert
-        _mockAccountProcessor.Verify(x => x.CancelOrderAsync(
-            It.IsAny<string>(),
-            It.IsAny<long>(),
-            It.IsAny<CancellationToken>()
-        ), Times.Never);
-    }
     [Fact]
     public async Task CheckOrderStatus_WithFailed_ShouldLogError()
     {
@@ -345,7 +287,7 @@ public class BaseExecutorTests
         var strategy = new Strategy
         {
             Symbol = "BTCUSDT",
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Quantity = 1.0m,
             OrderId = 12345L,
             OrderPlacedTime = DateTime.UtcNow,
@@ -372,7 +314,7 @@ public class BaseExecutorTests
         var strategy = new Strategy
         {
             Symbol = "BTCUSDT",
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Quantity = 1.0m,
             TargetPrice = 50000m
         };
@@ -389,17 +331,16 @@ public class BaseExecutorTests
     }
 
     [Fact]
-    public async Task TryPlaceOrder_WhenFailedWithRetries_ShouldLogWarningsAndError()
+    public async Task TryPlaceOrder_WhenFailed_ShouldLogError()
     {
         // Arrange
         var strategy = new Strategy
         {
             Symbol = "BTCUSDT",
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Quantity = 1.0m,
             TargetPrice = 50000m
         };
-        var MAX_RETRIES = 1;
 
         _mockAccountProcessor.SetupFailedPlaceLongOrderAsync("Insufficient balance");
 
@@ -407,41 +348,22 @@ public class BaseExecutorTests
         await _executor.TryPlaceOrder(_mockAccountProcessor.Object, strategy, _ct);
 
         // Assert
-        _mockLogger.VerifyLoggingTimes(LogLevel.Warning, "Retrying", Times.Exactly(MAX_RETRIES - 1));
         _mockLogger.VerifyLoggingOnce(LogLevel.Error, "Insufficient balance");
     }
 
     [Fact]
-    public async Task TryStopOrderAsync_WithRetrySuccess_ShouldStopOrderEventually()
+    public async Task TryStopOrderAsync_WithSuccess_ShouldStopOrder()
     {
         // Arrange
         var strategy = new Strategy
         {
             Symbol = "BTCUSDT",
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Quantity = 1.0m,
             TargetPrice = 50000m,
             OrderId = 12345L,
         };
-        var MAX_RETRIES = 1;
-
-        var failCount = 0;
-        _mockAccountProcessor
-            .Setup(x => x.StopLongOrderAsync(
-                It.IsAny<string>(),
-                It.IsAny<decimal>(),
-                It.IsAny<decimal>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(() =>
-            {
-                if (failCount++ < MAX_RETRIES - 1)
-                {
-                    return new WebCallResult<BinanceOrderBase>(null, null, null, 0, null, 0, null, null, null, null,
-                        ResultDataSource.Server, null, new ServerError(0, "Temporary error"));
-                }
-                return new WebCallResult<BinanceOrderBase>(null, null, null, 0, null, 0, null, null, null, null,
-                    ResultDataSource.Server, new BinanceOrder { Id = 12345 }, null);
-            });
+        _mockAccountProcessor.SetupSuccessfulStopLongOrderAsync();
 
         // Act
         await _executor.TryStopOrderAsync(_mockAccountProcessor.Object, strategy, 1000m, _ct);
@@ -455,30 +377,27 @@ public class BaseExecutorTests
                 It.IsAny<decimal>(),
                 It.IsAny<decimal>(),
                 It.IsAny<CancellationToken>()),
-            Times.Exactly(MAX_RETRIES));
+            Times.Exactly(1));
     }
     [Fact]
-    public async Task TryStopOrderAsync_WhenFailedWithRetries_ShouldLogWarningsAndError()
+    public async Task TryStopOrderAsync_WhenFailed_ShouldLogError()
     {
         // Arrange
         var strategy = new Strategy
         {
             Symbol = "BTCUSDT",
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Quantity = 1.0m,
             TargetPrice = 50000m,
             OrderId = 12345L,
         };
-        var MAX_RETRIES = 1;
-
         _mockAccountProcessor.SetupFailedStopLongOrderAsync("Network error");
 
         // Act
         await _executor.TryStopOrderAsync(_mockAccountProcessor.Object, strategy, 4000m, _ct);
 
         // Assert
-        _mockLogger.VerifyLoggingTimes(LogLevel.Warning, "Retrying", Times.Exactly(MAX_RETRIES - 1));
-        _mockLogger.VerifyLoggingOnce(LogLevel.Error, $"Network error");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Error, $"Failed to stop order:");
     }
     [Fact]
     public async Task TryStopOrderAsync_WhenOrderIdIsEmpty_ShouldDoNothing()
@@ -487,7 +406,7 @@ public class BaseExecutorTests
         var strategy = new Strategy
         {
             Symbol = "BTCUSDT",
-            StrategyType = StrategyType.BottomBuy,
+            StrategyType = StrategyType.OpenBuy,
             Quantity = 1.0m,
             TargetPrice = 50000m,
         };

@@ -9,11 +9,11 @@ public enum StrategyType
     [Description("DCA")]
     DCA,
 
-    [Description("TopSell")]
-    TopSell,
+    [Description("OpenSell")]
+    OpenSell,
 
-    [Description("BottomBuy")]
-    BottomBuy,
+    [Description("OpenBuy")]
+    OpenBuy,
 
     [Description("CloseBuy")]
     CloseBuy,

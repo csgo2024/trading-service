@@ -176,7 +176,7 @@ public class TelegramLogger : ILogger
         return message.ToString();
     }
 
-    private static string GetEmoji(LogLevel level) => level switch
+    public static string GetEmoji(LogLevel level) => level switch
     {
         LogLevel.Trace => "🔍",
         LogLevel.Debug => "🔧",
