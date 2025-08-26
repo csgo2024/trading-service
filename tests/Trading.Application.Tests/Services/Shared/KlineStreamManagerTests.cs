@@ -132,6 +132,7 @@ public class KlineStreamManagerTests
     {
         _mockState.Setup(x => x.GetAllSymbols()).Returns(new HashSet<string> { "BTCUSDT" });
         _mockState.Setup(x => x.GetAllIntervals()).Returns(new HashSet<string> { "5m" });
+        _mockState.Setup(x => x.NeedsReconnection()).Returns(false);
 
         using var cts = new CancellationTokenSource();
         var result = await _manager.SubscribeSymbols(new HashSet<string> { "BTCUSDT" }, new HashSet<string> { "5m" }, cts.Token);
@@ -145,6 +146,36 @@ public class KlineStreamManagerTests
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()),
             Times.Never);
+    }
+    [Fact]
+    public async Task SubscribeSymbols_WhenNeedReconnect_ShouldResubscription()
+    {
+        // arrange
+        _mockState.Setup(x => x.GetAllSymbols()).Returns(["BTCUSDT"]);
+        _mockState.Setup(x => x.GetAllIntervals()).Returns(["5m"]);
+        _mockState.Setup(x => x.NeedsReconnection()).Returns(true);
+        _mockExchangeData
+            .Setup(x => x.SubscribeToKlineUpdatesAsync(
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<KlineInterval>>(),
+                It.IsAny<Action<DataEvent<IBinanceStreamKlineData>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new CallResult<UpdateSubscription>(null, null, new CantConnectError()));
+
+        // act
+        using var cts = new CancellationTokenSource();
+        await _manager.SubscribeSymbols(new HashSet<string> { "BTCUSDT" }, new HashSet<string> { "5m" }, cts.Token);
+
+        // assert
+        _mockExchangeData.Verify(
+            x => x.SubscribeToKlineUpdatesAsync(
+                It.IsAny<IEnumerable<string>>(),
+                It.IsAny<IEnumerable<KlineInterval>>(),
+                It.IsAny<Action<DataEvent<IBinanceStreamKlineData>>>(),
+                It.IsAny<bool>(),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]

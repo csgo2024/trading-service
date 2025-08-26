@@ -39,37 +39,35 @@ public class KlineStreamManager : IKlineStreamManager
         {
             return false;
         }
+        var hasChanges = HasNewSymbolsOrIntervals(symbols, intervals, out var mergedSymbols, out var mergedIntervals);
 
-        // 只在有新 symbol/interval 时才触发订阅
-        if (!HasNewSymbolsOrIntervals(symbols, intervals, out var mergedSymbols, out var mergedIntervals))
+        // 只在有新 symbol/interval 或者 需要重新连接时才触发订阅
+        if (hasChanges || NeedsReconnection())
         {
-            _logger.LogDebug("No new symbols/intervals to subscribe. Skipping subscription.");
-            return true;
+            await CloseExistingSubscription();
+
+            var result = await _usdFutureSocketClient.ExchangeData.SubscribeToKlineUpdatesAsync(
+                mergedSymbols,
+                mergedIntervals.Select(BinanceHelper.ConvertToKlineInterval),
+                HandlePriceUpdate,
+                ct: ct);
+
+            if (!result.Success)
+            {
+                _logger.LogError("Failed to subscribe: {@Error}", result.Error);
+                return false;
+            }
+
+            _globalState.TryAddSymbols(mergedSymbols);
+            _globalState.TryAddIntervals(mergedIntervals);
+            _globalState.CurrentSubscription = result.Data;
+            _globalState.LastConnectionTime = DateTime.UtcNow;
+
+            _logger.LogInformation("Subscribed to {Count} symbols: {@Symbols} intervals: {@Intervals}",
+                                   mergedSymbols.Count,
+                                   mergedSymbols,
+                                   mergedIntervals);
         }
-
-        await CloseExistingSubscription();
-
-        var result = await _usdFutureSocketClient.ExchangeData.SubscribeToKlineUpdatesAsync(
-            mergedSymbols,
-            mergedIntervals.Select(BinanceHelper.ConvertToKlineInterval),
-            HandlePriceUpdate,
-            ct: ct);
-
-        if (!result.Success)
-        {
-            _logger.LogError("Failed to subscribe: {@Error}", result.Error);
-            return false;
-        }
-
-        _globalState.TryAddSymbols(mergedSymbols);
-        _globalState.TryAddIntervals(mergedIntervals);
-        _globalState.CurrentSubscription = result.Data;
-        _globalState.LastConnectionTime = DateTime.UtcNow;
-
-        _logger.LogInformation("Subscribed to {Count} symbols: {@Symbols} intervals: {@Intervals}",
-                               mergedSymbols.Count,
-                               mergedSymbols,
-                               mergedIntervals);
         return true;
     }
 
