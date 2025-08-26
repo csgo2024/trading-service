@@ -2,7 +2,6 @@ using System.Text.Json;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Telegram.Bot.Types.Enums;
 using Trading.Application.Commands;
 using Trading.Application.Telegram.Handlers;
 using Trading.Application.Telegram.Logging;
@@ -46,8 +45,8 @@ public class AlertCommandHandlerTests
         // Assert
         _mockLogger.Verify(
             x => x.BeginScope(
-                It.Is<TelegramLoggerScope>(x => x.ParseMode == ParseMode.Html)),
-            Times.Once);
+                It.IsAny<TelegramLoggerScope>()),
+            Times.Exactly(2));
         _mockLogger.VerifyLoggingOnce(LogLevel.Information, displayText);
     }
 

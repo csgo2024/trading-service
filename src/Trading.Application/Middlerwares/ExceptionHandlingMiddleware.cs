@@ -4,6 +4,7 @@ using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Trading.Application.Telegram.Logging;
 using Trading.Common.Extensions;
 
 namespace Trading.Application.Middlerwares;
@@ -67,7 +68,7 @@ public class ExceptionHandlingMiddleware
         var exceptions = exception.FlattenExceptions().ToList();
 
         var exceptionMessages = exceptions.Select(ex => ex.Message);
-        _logger.LogError(
+        _logger.LogErrorNotification(
             "Request: {RequestInfo}\nExceptions: {ExceptionMessages}",
             requestInfo,
             string.Join("\n", exceptionMessages)

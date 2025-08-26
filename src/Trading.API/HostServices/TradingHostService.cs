@@ -1,4 +1,5 @@
 using Trading.Application.Services.Trading;
+using Trading.Application.Telegram.Logging;
 using Trading.Domain.IRepositories;
 
 namespace Trading.API.HostServices;
@@ -37,7 +38,7 @@ public class TradingHostService : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error initializing trading service");
+                _logger.LogErrorNotification(ex, "Error initializing trading service");
             }
             await SimulateDelay(TimeSpan.FromMinutes(1), stoppingToken);
         }

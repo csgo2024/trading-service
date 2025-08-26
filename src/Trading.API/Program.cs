@@ -1,17 +1,22 @@
+using Trading.Application.Telegram.Logging;
+
 namespace Trading.API;
 
 public class Program
 {
     public static void Main(string[] args)
     {
+        ILogger? logger = null;
         try
         {
-            CreateHostBuilder(args).Build().Run();
+            var host = CreateHostBuilder(args).Build();
+            logger = host.Services.GetRequiredService<ILogger<Program>>();
+            logger.LogNotification(LogLevel.Information, null, false, null, "Starting trading-service host...");
+            host.Run();
         }
-        catch (Exception e)
+        catch (Exception ex)
         {
-            Console.WriteLine(e);
-            throw;
+            logger?.LogErrorNotification(ex, "Host terminated unexpectedly");
         }
     }
 

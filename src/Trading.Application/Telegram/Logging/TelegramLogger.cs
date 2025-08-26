@@ -28,8 +28,8 @@ internal sealed class DisposableScope : IDisposable
 public class TelegramLoggerScope
 {
     public string? Title { get; set; }
-    public bool DisableNotification { get; set; } = true;
-    public ParseMode ParseMode { get; set; } = ParseMode.Html;
+    public bool? DisableNotification { get; set; }
+    public ParseMode? ParseMode { get; set; }
     public ReplyMarkup? ReplyMarkup { get; set; }
 }
 
@@ -58,7 +58,6 @@ public class TelegramLogger : ILogger
 
         if (state is not TelegramLoggerScope scope)
         {
-            // If the state is not a TelegramLoggerScope, we create a new one
             scope = new TelegramLoggerScope();
         }
 
@@ -73,12 +72,53 @@ public class TelegramLogger : ILogger
         });
     }
 
+    /// <summary>
+    /// 获取合并后的作用域，内层优先，逐级向外继承
+    /// </summary>
     private TelegramLoggerScope GetCurrentScope()
     {
         var scopeStack = _scopeStack.Value;
-        return scopeStack?.Count > 0
-            ? scopeStack.Peek()
-            : new TelegramLoggerScope();
+        if (scopeStack == null || scopeStack.Count == 0)
+        {
+            var scope = new TelegramLoggerScope
+            {
+                DisableNotification = true,
+                ParseMode = ParseMode.Html
+            };
+            return scope;
+        }
+
+        var merged = new TelegramLoggerScope();
+
+        // ⚠️ Stack 默认迭代顺序：先栈顶（内层），再往外层
+        foreach (var scope in scopeStack)
+        {
+            if (merged.Title == null && !string.IsNullOrEmpty(scope.Title))
+            {
+                merged.Title = scope.Title;
+            }
+
+            if (merged.DisableNotification == null && scope.DisableNotification != null)
+            {
+                merged.DisableNotification = scope.DisableNotification;
+            }
+
+            if (merged.ParseMode == null && scope.ParseMode != null)
+            {
+                merged.ParseMode = scope.ParseMode;
+            }
+
+            if (merged.ReplyMarkup == null && scope.ReplyMarkup != null)
+            {
+                merged.ReplyMarkup = scope.ReplyMarkup;
+            }
+        }
+
+        // 默认值补齐
+        merged.DisableNotification ??= true;
+        merged.ParseMode ??= ParseMode.Html;
+
+        return merged;
     }
 
     public bool IsEnabled(LogLevel logLevel)
@@ -87,13 +127,18 @@ public class TelegramLogger : ILogger
             && logLevel >= _loggerOptions.Value.MinimumLevel
             && !_loggerOptions.Value.ExcludeCategories.Contains(_categoryName);
     }
+
     public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
     {
         if (!IsEnabled(logLevel))
         {
             return;
         }
-
+        if (eventId != LoggerExtensions.NotificationEventId)
+        {
+            // Only process NotificationEventId
+            return;
+        }
         var task = LogInternalAsync(logLevel, state, exception, formatter);
         task.ConfigureAwait(false).GetAwaiter().GetResult();
     }
@@ -112,8 +157,8 @@ public class TelegramLogger : ILogger
             {
                 ChatId = _chatId,
                 Text = text,
-                ParseMode = scope.ParseMode,
-                DisableNotification = scope.DisableNotification,
+                ParseMode = scope.ParseMode ?? ParseMode.Html,
+                DisableNotification = scope.DisableNotification ?? true,
                 ReplyMarkup = scope.ReplyMarkup
             });
         }
@@ -143,9 +188,10 @@ public class TelegramLogger : ILogger
             ? scope.Title
             : $"{GetEmoji(logLevel)} {logLevel}";
 
-        if (title.Length > 19)
+        if (title.Length > 15)
         {
             message.AppendLine($"<b>{title}</b>");
+            message.AppendLine($"<b>⏰ ({DateTime.UtcNow.AddHours(8):yyyy-MM-dd HH:mm:ss}) </b>");
         }
         else
         {
