@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Trading.Application.Services.Shared;
+using Trading.Application.Telegram.Logging;
 
 namespace Trading.Application.Telegram.Handlers;
 
@@ -20,7 +21,7 @@ public class DebugCommandHandler : ICommandHandler
 
     public async Task HandleAsync(string parameters)
     {
-        _logger.LogInformation("Debug command received. Current global state: {@State}", _globalState);
+        _logger.LogInfoNotification("Debug command received. Current global state: {@State}", _globalState);
         await Task.Delay(100);
     }
 

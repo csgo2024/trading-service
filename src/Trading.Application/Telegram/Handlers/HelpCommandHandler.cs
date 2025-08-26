@@ -114,7 +114,7 @@ public class HelpCommandHandler : ICommandHandler
         using (_logger.BeginScope(telegramScope))
         {
 #pragma warning disable CA2017 // Parameter count mismatch
-            await Task.Run(() => _logger.LogInformation(HelpText));
+            await Task.Run(() => _logger.Log(LogLevel.Information, Logging.LoggerExtensions.NotificationEventId, HelpText));
 #pragma warning restore CA2017 // Parameter count mismatch
         }
     }

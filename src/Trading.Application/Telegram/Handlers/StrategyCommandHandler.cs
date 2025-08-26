@@ -53,7 +53,7 @@ public class StrategyCommandHandler : ICommandHandler
                 await HandleResume(subParameters);
                 break;
             default:
-                _logger.LogError("Unknown command. Use: create, delete, pause, or resume");
+                _logger.LogErrorNotification("Unknown command. Use: create, delete, pause, or resume");
                 break;
         }
     }
@@ -63,7 +63,7 @@ public class StrategyCommandHandler : ICommandHandler
         var strategies = await _strategyRepository.GetAllAsync();
         if (strategies.Count == 0)
         {
-            _logger.LogInformation("Strategy is empty, please create and call later.");
+            _logger.LogInfoNotification("Strategy is empty, please create and call later.");
             return;
         }
 
@@ -91,7 +91,7 @@ public class StrategyCommandHandler : ICommandHandler
 
             using (_logger.BeginScope(telegramScope))
             {
-                _logger.LogInformation(text);
+                _logger.LogInfoNotification(text);
             }
         }
 
@@ -111,7 +111,7 @@ public class StrategyCommandHandler : ICommandHandler
         var command = JsonSerializer.Deserialize<CreateStrategyCommand>(json, options)
                       ?? throw new InvalidOperationException("Failed to parse strategy parameters");
         var entity = await _mediator.Send(command);
-        _logger.LogInformation("Strategy {id} created successfully.", entity?.Id);
+        _logger.LogInfoNotification("Strategy {id} created successfully.", entity?.Id);
     }
 
     private async Task HandleDelete(string id)
@@ -128,7 +128,7 @@ public class StrategyCommandHandler : ICommandHandler
         {
             throw new InvalidOperationException($"Failed to delete strategy {id}");
         }
-        _logger.LogInformation("Strategy {id} deleted successfully.", id);
+        _logger.LogInfoNotification("Strategy {id} deleted successfully.", id);
     }
 
     private async Task HandlPause(string id)
@@ -137,12 +137,12 @@ public class StrategyCommandHandler : ICommandHandler
         var strategy = await _strategyRepository.GetByIdAsync(id);
         if (strategy == null)
         {
-            _logger.LogError("Not found strategy: {Id}", id);
+            _logger.LogErrorNotification("Not found strategy: {Id}", id);
             return;
         }
         strategy.Pause();
         await _strategyRepository.UpdateAsync(id, strategy);
-        _logger.LogInformation("Strategy {id} paused successfully.", id);
+        _logger.LogInfoNotification("Strategy {id} paused successfully.", id);
     }
 
     private async Task HandleResume(string id)
@@ -151,12 +151,12 @@ public class StrategyCommandHandler : ICommandHandler
         var strategy = await _strategyRepository.GetByIdAsync(id);
         if (strategy == null)
         {
-            _logger.LogError("Not found strategy: {Id}", id);
+            _logger.LogErrorNotification("Not found strategy: {Id}", id);
             return;
         }
         strategy.Resume();
         await _strategyRepository.UpdateAsync(id, strategy);
-        _logger.LogInformation("Strategy {id} resumed successfully.", id);
+        _logger.LogInfoNotification("Strategy {id} resumed successfully.", id);
     }
 
     public async Task HandleCallbackAsync(string action, string parameters)

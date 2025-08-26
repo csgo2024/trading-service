@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Microsoft.Extensions.Logging;
 using Telegram.Bot.Types;
+using Trading.Application.Telegram.Logging;
 
 namespace Trading.Application.Telegram;
 
@@ -35,7 +36,7 @@ public class TelegramCommandHandler : ITelegramCommandHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Command execution failed");
+            _logger.LogErrorNotification(ex, "Command execution failed");
         }
     }
 
@@ -58,7 +59,7 @@ public class TelegramCommandHandler : ITelegramCommandHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Callback execution failed");
+            _logger.LogErrorNotification(ex, "Callback execution failed");
         }
     }
 

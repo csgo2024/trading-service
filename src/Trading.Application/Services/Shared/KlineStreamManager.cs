@@ -3,6 +3,7 @@ using CryptoExchange.Net.Objects.Sockets;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using Trading.Application.IntegrationEvents.Events;
+using Trading.Application.Telegram.Logging;
 using Trading.Exchange.Binance.Helpers;
 using Trading.Exchange.Binance.Wrappers.Clients;
 
@@ -54,7 +55,7 @@ public class KlineStreamManager : IKlineStreamManager
 
             if (!result.Success)
             {
-                _logger.LogError("Failed to subscribe: {@Error}", result.Error);
+                _logger.LogErrorNotification("Failed to subscribe: {@Error}", result.Error);
                 return false;
             }
 
@@ -63,7 +64,7 @@ public class KlineStreamManager : IKlineStreamManager
             _globalState.CurrentSubscription = result.Data;
             _globalState.LastConnectionTime = DateTime.UtcNow;
 
-            _logger.LogInformation("Subscribed to {Count} symbols: {@Symbols} intervals: {@Intervals}",
+            _logger.LogInfoNotification("Subscribed to {Count} symbols: {@Symbols} intervals: {@Intervals}",
                                    mergedSymbols.Count,
                                    mergedSymbols,
                                    mergedIntervals);
@@ -115,7 +116,7 @@ public class KlineStreamManager : IKlineStreamManager
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error closing subscription");
+                _logger.LogErrorNotification(ex, "Error closing subscription");
             }
         }
     }

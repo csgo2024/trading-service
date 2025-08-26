@@ -36,22 +36,15 @@ public abstract class BaseExecutor
         _globalState = globalState;
     }
 
-    protected void Log(LogLevel level, Strategy strategy, bool disableNotification, string? message, params object?[] args)
+    private void Log(LogLevel level, Strategy strategy, bool disableNotification, string? message, params object?[] args)
     {
-        var telegramScope = new TelegramLoggerScope
-        {
-            Title = $"📊 {strategy.AccountType}-{strategy.Symbol}-{strategy.Interval}-{strategy.StrategyType}",
-            DisableNotification = disableNotification
-        };
+        var title = $"📊 {strategy.AccountType}-{strategy.Symbol}-{strategy.Interval}-{strategy.StrategyType}";
 
         message = $"""
-        {TelegramLogger.GetEmoji(level)} {level} ({DateTime.UtcNow.AddHours(8):yyyy-MM-dd HH:mm:ss})
-        {message}
-        """;
-        using (_logger.BeginScope(telegramScope))
-        {
-            _logger.Log(level, message, args);
-        }
+                   {TelegramLogger.GetEmoji(level)} {level} ({DateTime.UtcNow.AddHours(8):yyyy-MM-dd HH:mm:ss})
+                   {message}
+                   """;
+        _logger.LogNotification(level, title, disableNotification, null, message, args);
     }
 
     public abstract StrategyType StrategyType { get; }
@@ -106,7 +99,7 @@ public abstract class BaseExecutor
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error executing strategy {StrategyId}", strategyId);
+                _logger.LogErrorNotification(ex, "Error executing strategy {StrategyId}", strategyId);
                 await Task.Delay(TimeSpan.FromSeconds(30), cancellationToken);
             }
         }

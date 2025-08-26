@@ -9,22 +9,6 @@ using Trading.Common.Extensions;
 using Trading.Common.Models;
 
 namespace Trading.Application.Telegram.Logging;
-
-internal sealed class DisposableScope : IDisposable
-{
-    private readonly Action _onDispose;
-
-    public DisposableScope(Action onDispose)
-    {
-        _onDispose = onDispose;
-    }
-
-    public void Dispose()
-    {
-        _onDispose();
-    }
-}
-
 public class TelegramLoggerScope
 {
     public string? Title { get; set; }
@@ -39,46 +23,56 @@ public class TelegramLogger : ILogger
     private readonly ITelegramBotClient _botClient;
     private readonly string _categoryName;
     private readonly string _chatId;
-    private readonly AsyncLocal<Stack<TelegramLoggerScope>> _scopeStack = new();
+    private readonly IExternalScopeProvider _scopeProvider;
 
-    public TelegramLogger(ITelegramBotClient botClient,
-                          IOptions<TelegramLoggerOptions> loggerOptions,
-                          TelegramSettings settings,
-                          string categoryName)
+    public TelegramLogger(
+        ITelegramBotClient botClient,
+        IOptions<TelegramLoggerOptions> loggerOptions,
+        TelegramSettings settings,
+        string categoryName,
+        IExternalScopeProvider? scopeProvider = null)
     {
         _botClient = botClient;
         _loggerOptions = loggerOptions;
         _categoryName = categoryName;
         _chatId = settings.ChatId ?? throw new ArgumentNullException(nameof(settings), "TelegramSettings is not valid.");
+
+        // 如果外部没传 scopeProvider，就用默认的
+        _scopeProvider = scopeProvider ?? new LoggerExternalScopeProvider();
     }
 
     public IDisposable BeginScope<TState>(TState state) where TState : notnull
     {
-        var scopeStack = _scopeStack.Value ??= new Stack<TelegramLoggerScope>();
-
-        if (state is not TelegramLoggerScope scope)
-        {
-            // If the state is not a TelegramLoggerScope, we create a new one
-            scope = new TelegramLoggerScope();
-        }
-
-        scopeStack.Push(scope);
-
-        return new DisposableScope(() =>
-        {
-            if (_scopeStack.Value?.Count > 0)
-            {
-                _scopeStack.Value.Pop();
-            }
-        });
+        return _scopeProvider.Push(state);
     }
 
+    /// <summary>
+    /// 获取当前合并后的 Scope（内层优先覆盖外层）
+    /// </summary>
     private TelegramLoggerScope GetCurrentScope()
     {
-        var scopeStack = _scopeStack.Value;
-        return scopeStack?.Count > 0
-            ? scopeStack.Peek()
-            : new TelegramLoggerScope();
+        var merged = new TelegramLoggerScope();
+
+        _scopeProvider.ForEachScope((s, _) =>
+        {
+            if (s is TelegramLoggerScope telegramScope)
+            {
+                if (!string.IsNullOrEmpty(telegramScope.Title))
+                {
+                    merged.Title = telegramScope.Title;
+                }
+
+                if (telegramScope.ReplyMarkup != null)
+                {
+                    merged.ReplyMarkup = telegramScope.ReplyMarkup;
+                }
+
+                merged.DisableNotification = telegramScope.DisableNotification;
+                merged.ParseMode = telegramScope.ParseMode;
+            }
+        }, state: (object?)null);
+
+        return merged;
     }
 
     public bool IsEnabled(LogLevel logLevel)
@@ -87,10 +81,20 @@ public class TelegramLogger : ILogger
             && logLevel >= _loggerOptions.Value.MinimumLevel
             && !_loggerOptions.Value.ExcludeCategories.Contains(_categoryName);
     }
-    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+
+    public void Log<TState>(LogLevel logLevel,
+                            EventId eventId,
+                            TState state,
+                            Exception? exception,
+                            Func<TState, Exception?, string> formatter)
     {
         if (!IsEnabled(logLevel))
         {
+            return;
+        }
+        if (eventId != LoggerExtensions.NotificationEventId)
+        {
+            // 只处理 NotificationEventId
             return;
         }
 
@@ -98,7 +102,11 @@ public class TelegramLogger : ILogger
         task.ConfigureAwait(false).GetAwaiter().GetResult();
     }
 
-    private async Task LogInternalAsync<TState>(LogLevel logLevel, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    private async Task LogInternalAsync<TState>(
+        LogLevel logLevel,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter)
     {
         try
         {
@@ -135,7 +143,12 @@ public class TelegramLogger : ILogger
         }
     }
 
-    private string BuildHtmlMessage<TState>(LogLevel logLevel, TState state, Exception? exception, Func<TState, Exception?, string> formatter, TelegramLoggerScope scope)
+    private string BuildHtmlMessage<TState>(
+        LogLevel logLevel,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter,
+        TelegramLoggerScope scope)
     {
         var message = new StringBuilder();
 

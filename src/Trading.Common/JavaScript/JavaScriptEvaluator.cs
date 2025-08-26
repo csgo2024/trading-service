@@ -66,7 +66,7 @@ public class JavaScriptEvaluator : IDisposable
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex,
+                _logger.LogError(new EventId(9999, "Notification"), ex,
                     "JavaScript evaluation error (attempt {Attempt}/{MaxRetries}) for expression: {Expression}",
                     attempt, MaxRetries, expression);
 

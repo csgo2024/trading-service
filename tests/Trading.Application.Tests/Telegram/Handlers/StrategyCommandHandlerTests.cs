@@ -71,7 +71,7 @@ public class StrategyCommandHandlerTests
         _mockLogger.Verify(
             x => x.BeginScope(
                 It.Is<TelegramLoggerScope>(x => x.ParseMode == ParseMode.Html)),
-            Times.Once);
+            Times.Exactly(2));
         _mockLogger.VerifyLoggingOnce(LogLevel.Information, statusText);
     }
 

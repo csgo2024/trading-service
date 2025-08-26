@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Trading.Application.Telegram.Logging;
 using Trading.Common.Enums;
 
 namespace Trading.Application.Services.Shared;
@@ -67,7 +68,7 @@ public class BaseTaskManager : ITaskManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error starting task: Category={Category}, TaskId={TaskId}", category, taskId);
+            _logger.LogErrorNotification(ex, "Error starting task: Category={Category}, TaskId={TaskId}", category, taskId);
         }
         finally
         {
@@ -107,7 +108,7 @@ public class BaseTaskManager : ITaskManager
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error stopping task: Category={Category}, TaskId={TaskId}", category, taskId);
+            _logger.LogErrorNotification(ex, "Error stopping task: Category={Category}, TaskId={TaskId}", category, taskId);
         }
         finally
         {
