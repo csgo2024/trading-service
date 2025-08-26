@@ -94,7 +94,7 @@ public class GlobalState
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
             Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
-        logger.LogDebug("GlobalState created : {HashCode}", GetHashCode());
+        logger.LogInformation("GlobalState created : {HashCode}", GetHashCode());
     }
 
     #region Delegates to Sub-States

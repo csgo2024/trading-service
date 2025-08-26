@@ -64,7 +64,7 @@ public class BaseTaskManager : ITaskManager
                 return;
             }
 
-            _logger.LogDebug("Task started: Category={Category}, TaskId={TaskId}", category, taskId);
+            _logger.LogInformation("Task started: Category={Category}, TaskId={TaskId}", category, taskId);
         }
         catch (Exception ex)
         {
@@ -104,7 +104,7 @@ public class BaseTaskManager : ITaskManager
             {
                 // ignore TaskCanceledException
             }
-            _logger.LogDebug("Task stopped: Category={Category}, TaskId={TaskId}", category, taskId);
+            _logger.LogInformation("Task stopped: Category={Category}, TaskId={TaskId}", category, taskId);
         }
         catch (Exception ex)
         {
@@ -125,7 +125,7 @@ public class BaseTaskManager : ITaskManager
                 await StopAsync(category, item.Id);
             }
         }
-        _logger.LogDebug("All tasks stopped for category: {Category}", category);
+        _logger.LogInformation("All tasks stopped for category: {Category}", category);
     }
 
     public async Task StopAsync()
@@ -134,7 +134,7 @@ public class BaseTaskManager : ITaskManager
         {
             await StopAsync(item.Category, item.Id);
         }
-        _logger.LogDebug("All tasks stopped across all categories");
+        _logger.LogInformation("All tasks stopped across all categories");
     }
 
     public async ValueTask DisposeAsync()
