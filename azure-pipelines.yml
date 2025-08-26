@@ -74,7 +74,7 @@ stages:
   - template: semver-job.yml@templates
     parameters:
       major: 0
-      minor: 4
+      minor: 5
       patch: 0
       environment: 'production'
 
