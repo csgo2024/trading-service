@@ -60,7 +60,7 @@ public class AlertCommandHandler : ICommandHandler
                 await HandleResume(subParameters);
                 break;
             default:
-                _logger.LogError("Unknown command. Use: create, delete, pause, or resume");
+                _logger.LogErrorNotification("Unknown command. Use: create, delete, pause, or resume");
                 break;
         }
     }
@@ -70,7 +70,7 @@ public class AlertCommandHandler : ICommandHandler
         var alerts = await _alertRepository.GetAllAsync();
         if (alerts.Count == 0)
         {
-            _logger.LogInformation("Alert is empty, please create and call later.");
+            _logger.LogInfoNotification("Alert is empty, please create and call later.");
             return;
         }
         foreach (var alert in alerts)
@@ -90,13 +90,13 @@ public class AlertCommandHandler : ICommandHandler
 
             var telegramScope = new TelegramLoggerScope
             {
-                Title = $"⏰ {alert.Symbol}-{alert.Interval} Alert",
+                Title = $"📁 {alert.Symbol}-{alert.Interval} Alert",
                 ReplyMarkup = new InlineKeyboardMarkup([buttons])
             };
 
             using (_logger.BeginScope(telegramScope))
             {
-                _logger.LogInformation(text);
+                _logger.LogInfoNotification(text);
             }
         }
     }
@@ -104,7 +104,7 @@ public class AlertCommandHandler : ICommandHandler
     {
         var count = await _alertRepository.ClearAllAsync(CancellationToken.None);
         await _mediator.Publish(new AlertEmptyedEvent());
-        _logger.LogInformation("{Count} Alarms empty successfully.", count);
+        _logger.LogInfoNotification("{Count} Alarms empty successfully.", count);
     }
     private async Task HandleCreate(string json)
     {
@@ -118,7 +118,7 @@ public class AlertCommandHandler : ICommandHandler
                       ?? throw new InvalidOperationException("Failed to parse alert parameters");
 
         var entity = await _mediator.Send(command);
-        _logger.LogInformation("Alert {id} created successfully.", entity?.Id);
+        _logger.LogInfoNotification("Alert {id} created successfully.", entity?.Id);
     }
 
     private async Task HandleDelete(string id)
@@ -130,7 +130,7 @@ public class AlertCommandHandler : ICommandHandler
         {
             throw new InvalidOperationException($"Failed to delete alert {id}");
         }
-        _logger.LogInformation("Alert {id} deleted successfully.", id);
+        _logger.LogInfoNotification("Alert {id} deleted successfully.", id);
     }
 
     private async Task HandlePause(string id)
@@ -139,12 +139,12 @@ public class AlertCommandHandler : ICommandHandler
         var alert = await _alertRepository.GetByIdAsync(id);
         if (alert == null)
         {
-            _logger.LogError("Not found alarm: {AlertId}", id);
+            _logger.LogErrorNotification("Not found alarm: {AlertId}", id);
             return;
         }
         alert.Pause();
         await _alertRepository.UpdateAsync(id, alert);
-        _logger.LogInformation("Alert {id} paused successfully.", id);
+        _logger.LogInfoNotification("Alert {id} paused successfully.", id);
     }
 
     private async Task HandleResume(string id)
@@ -153,12 +153,12 @@ public class AlertCommandHandler : ICommandHandler
         var alert = await _alertRepository.GetByIdAsync(id);
         if (alert == null)
         {
-            _logger.LogError("Not found alarm: {AlertId}", id);
+            _logger.LogErrorNotification("Not found alarm: {AlertId}", id);
             return;
         }
         alert.Resume();
         await _alertRepository.UpdateAsync(id, alert);
-        _logger.LogInformation("Alert {id} resumed successfully.", id);
+        _logger.LogInfoNotification("Alert {id} resumed successfully.", id);
     }
 
     public async Task HandleCallbackAsync(string action, string parameters)

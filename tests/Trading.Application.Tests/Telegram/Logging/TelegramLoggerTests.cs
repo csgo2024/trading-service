@@ -41,7 +41,7 @@ public class TelegramLoggerTests
             .ReturnsAsync(new Message());
 
         // Act
-        _logger.Log(LogLevel.Information, 0, logMessage, null, (state, _) => state.ToString());
+        _logger.Log(LogLevel.Information, Trading.Application.Telegram.Logging.LoggerExtensions.NotificationEventId, logMessage, null, (state, _) => state.ToString());
 
         // Wait for async operation
         await Task.Delay(100);
@@ -77,7 +77,7 @@ public class TelegramLoggerTests
             .ReturnsAsync(new Message());
 
         // Act
-        _logger.Log(LogLevel.Error, 0, logMessage, exception, (state, _) => state.ToString());
+        _logger.Log(LogLevel.Error, Trading.Application.Telegram.Logging.LoggerExtensions.NotificationEventId, logMessage, exception, (state, _) => state.ToString());
 
         // Wait for async operation
         await Task.Delay(100);
@@ -112,7 +112,7 @@ public class TelegramLoggerTests
             .ReturnsAsync(new Message());
 
         // Act
-        _logger.Log(level, 0, logMessage, null, (state, _) => state.ToString());
+        _logger.Log(level, Trading.Application.Telegram.Logging.LoggerExtensions.NotificationEventId, logMessage, null, (state, _) => state.ToString());
 
         // Wait for async operation
         await Task.Delay(100);

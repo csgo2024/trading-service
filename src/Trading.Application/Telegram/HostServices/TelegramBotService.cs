@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
+using Trading.Application.Telegram.Logging;
 using Trading.Common.Models;
 
 namespace Trading.Application.Telegram.HostServices;
@@ -39,7 +40,7 @@ public class TelegramBotService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to start bot service");
+            _logger.LogErrorNotification(ex, "Failed to start bot service");
         }
 
         await Task.Delay(-1, cancellationToken);
@@ -53,7 +54,7 @@ public class TelegramBotService : BackgroundService
             {
                 if (callbackQuery.From.Id != _telegramSettings.UserId)
                 {
-                    _logger.LogError("Permission denied");
+                    _logger.LogErrorNotification("Permission denied");
                     return;
                 }
                 await _commandHandler.HandleCallbackQuery(callbackQuery);
@@ -63,7 +64,7 @@ public class TelegramBotService : BackgroundService
             {
                 if (update.Message.From?.Id != _telegramSettings.UserId)
                 {
-                    _logger.LogError("Permission denied");
+                    _logger.LogErrorNotification("Permission denied");
                     return;
                 }
                 if (messageText.StartsWith('/'))
@@ -75,13 +76,13 @@ public class TelegramBotService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error handling update {UpdateId}", update.Id);
+            _logger.LogErrorNotification(ex, "Error handling update {UpdateId}", update.Id);
         }
     }
 
     private Task HandlePollingErrorAsync(ITelegramBotClient botClient, Exception exception, CancellationToken cancellationToken)
     {
-        // _logger.LogError(exception, "Telegram Polling Error");
+        // _logger.LogErrorNotification(exception, "Telegram Polling Error");
         return Task.CompletedTask;
     }
 }

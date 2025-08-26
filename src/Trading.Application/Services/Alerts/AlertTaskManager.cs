@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Logging;
 using Trading.Application.Services.Shared;
+using Trading.Application.Telegram.Logging;
 using Trading.Common.Enums;
 using Trading.Domain.Entities;
 
@@ -67,7 +68,7 @@ public class AlertTaskManager : IAlertTaskManager
     {
         _globalState.ClearAlerts();
         _globalState.ClearLastKlines();
-        _logger.LogInformation("Alerts emptyed, stopping all monitors.");
+        _logger.LogInfoNotification("Alerts emptyed, stopping all monitors.");
         await _baseTaskManager.StopAsync(TaskCategory.Alert);
     }
 }

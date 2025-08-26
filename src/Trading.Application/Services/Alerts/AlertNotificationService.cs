@@ -6,6 +6,7 @@ using Trading.Application.Telegram.Logging;
 using Trading.Common.JavaScript;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
+using LoggerExtensions = Trading.Application.Telegram.Logging.LoggerExtensions;
 
 namespace Trading.Application.Services.Alerts;
 
@@ -62,7 +63,7 @@ public class AlertNotificationService : IAlertNotificationService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error checking alert {AlertId}", alert.Id);
+                _logger.LogErrorNotification(ex, "Error checking alert {AlertId}", alert.Id);
                 await Task.Delay(TimeSpan.FromMilliseconds(100), cancellationToken);
             }
         }
@@ -97,7 +98,7 @@ public class AlertNotificationService : IAlertNotificationService
 
             var telegramScope = new TelegramLoggerScope
             {
-                Title = $"⏰ Alarm Triggered: {alert.Symbol}-{alert.Interval}",
+                Title = $"📁 Alarm Triggered: {alert.Symbol}-{alert.Interval}",
                 DisableNotification = false,
                 ReplyMarkup = new InlineKeyboardMarkup(
                 [
@@ -109,7 +110,7 @@ public class AlertNotificationService : IAlertNotificationService
             };
             using (_logger.BeginScope(telegramScope))
             {
-                _logger.LogInformation(text);
+                _logger.Log(LogLevel.Information, LoggerExtensions.NotificationEventId, text);
             }
 
             alert.LastNotification = DateTime.UtcNow;
@@ -119,7 +120,7 @@ public class AlertNotificationService : IAlertNotificationService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to send alert");
+            _logger.LogErrorNotification(ex, "Failed to send alert");
         }
     }
 }

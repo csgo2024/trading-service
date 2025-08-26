@@ -1,4 +1,5 @@
 using Trading.Application.Services.Shared;
+using Trading.Application.Telegram.Logging;
 using Trading.Domain.IRepositories;
 
 namespace Trading.API.HostServices;
@@ -35,7 +36,7 @@ public class StreamHostService : BackgroundService
                     _isSubscribed = await SubscribeFromDatabase(stoppingToken);
                     if (_isSubscribed)
                     {
-                        _logger.LogInformation("Initial subscription completed successfully");
+                        _logger.LogInfoNotification("Initial subscription completed successfully");
                     }
                 }
                 // Reconnect 时重新订阅
@@ -44,7 +45,7 @@ public class StreamHostService : BackgroundService
                     _isSubscribed = await SubscribeFromDatabase(stoppingToken);
                     if (_isSubscribed)
                     {
-                        _logger.LogInformation("Reconnection completed successfully");
+                        _logger.LogInfoNotification("Reconnection completed successfully");
                     }
                 }
             }
@@ -54,7 +55,7 @@ public class StreamHostService : BackgroundService
                     ? "Initial subscription failed. Retrying in 1 minute..."
                     : "Reconnection failed. Retrying in 1 minute...";
 
-                _logger.LogError(ex, errorMessage);
+                _logger.LogErrorNotification(ex, errorMessage);
             }
             await SimulateDelay(TimeSpan.FromSeconds(10), stoppingToken);
         }
