@@ -38,8 +38,9 @@ internal sealed class StreamState
 {
     private readonly HashSet<string> _symbols = new();
     private readonly HashSet<string> _intervals = new();
-    private readonly TimeSpan _reconnectInterval = TimeSpan.FromHours(23);
 
+    // Binance stream max lifetime is 24 hours, reconnect every 23 hours and 53 minutes
+    private readonly TimeSpan _reconnectInterval = TimeSpan.FromMinutes(23 * 60 + 53);
     public DateTime? LastConnectionTime { get; set; }
     public UpdateSubscription? CurrentSubscription { get; set; }
 
