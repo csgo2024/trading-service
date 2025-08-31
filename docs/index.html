@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Service Documentation</title>
+<style>
+/* 全局样式 */
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f9f9f9;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    line-height: 1.6;
+}
+.container {
+    max-width: 1000px;
+    margin: auto;
+    padding: 20px;
+}
+
+
+/* 标题样式 */
+h1, h2, h3, h4 {
+    color: #333;
+}
+h1 {
+    margin-bottom: 20px;
+}
+
+/* 表格样式 */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 15px 0;
+    background-color: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+}
+th, td {
+    padding: 12px 15px;
+    border: 1px solid #ccc;
+}
+th {
+    background-color: #d9f0d9; /* 浅绿色表头 */
+    color: #333;
+}
+
+/* 代码块样式 */
+pre {
+    background: #f0f0f0; /* 浅灰色背景 */
+    color: #333;
+    padding: 15px 50px 15px 15px;
+    border-radius: 6px;
+    overflow-x: auto;
+    position: relative;
+    margin: 15px 0;
+    font-family: monospace;
+    font-size: 14px;
+    border: 1px solid #ccc;
+}
+button.copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 4px 10px;
+    font-size: 12px;
+    background-color: #4CAF50; /* 绿色按钮 */
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    z-index: 10;
+}
+button.copy-btn:hover {
+    background-color: #45a049;
+}
+
+/* 链接样式 */
+a {
+    color: #333;
+}
+a:hover {
+    text-decoration: underline;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    pre {
+        font-size: 14px;
+        padding: 15px 40px 15px 15px;
+    }
+    nav {
+        padding: 10px;
+    }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>Trading Service Documentation</h1>
+
+<nav>
+
+<h2 id="基础命令">基础命令</h2>
+<table>
+<tr><th>命令</th><th>说明</th><th>子命令</th></tr>
+<tr><td>/help</td><td>显示帮助信息</td><td>-</td></tr>
+<tr><td>/debug</td><td>查看状态</td><td>-</td></tr>
+<tr><td>/strategy</td><td>策略管理</td><td>create, delete, pause, resume</td></tr>
+<tr><td>/alert</td><td>警报管理</td><td>create, delete, empty, pause, resume</td></tr>
+</table>
+
+<h2 id="策略管理">策略管理</h2>
+<h3 id="策略类型说明">策略类型说明</h3>
+
+<h4>RestClient 策略</h4>
+<ul>
+    <li><strong>OpenBuy</strong> 和 <strong>OpenSell</strong>: 基于指定周期开盘价格执行的策略</li>
+    <li>特点：不需要等待收盘，自动获取当前周期的开盘价格进行下单。如果 AutoReset 为 true，则会在每个新周期开始时取消未成交订单并重新下单</li>
+</ul>
+
+<h4>WebSocket 策略</h4>
+<ul>
+    <li><strong>CloseBuy</strong> 和 <strong>CloseSell</strong>: 基于指定周期收盘价格执行的策略</li>
+    <li>⚠️ 注意：必须等待当前周期收盘后才会执行下单, 不会在新周期开始时自动更新价格下单</li>
+</ul>
+
+<h3 id="策略示例">策略示例</h3>
+
+<h4>1. 现货做多策略 (OpenBuy)</h4>
+<pre><code>/strategy create {
+    "Symbol": "BTCUSDT",
+    "Amount": 1000,
+    "Volatility": 0.2,
+    "Interval": "1d",
+    "AccountType": "Spot",
+    "AutoReset": false,
+    "StopLossExpression": "close = 0",
+    "StrategyType": "OpenBuy"
+}</code><button class="copy-btn">复制</button></pre>
+
+<h4>2. 合约做空策略 (OpenSell)</h4>
+<pre><code>/strategy create {
+    "Symbol": "BTCUSDT",
+    "Amount": 1000,
+    "Volatility": 0.2,
+    "Interval": "1d",
+    "AccountType": "Future",
+    "AutoReset": false,
+    "StopLossExpression": "close = 0",
+    "StrategyType": "OpenSell"
+}</code><button class="copy-btn">复制</button></pre>
+
+<h4>3. WebSocket合约做空策略 (CloseSell)</h4>
+<pre><code>/strategy create {
+    "Symbol": "BTCUSDT",
+    "Amount": 1000,
+    "Volatility": 0.002,
+    "Interval": "4h",
+    "AccountType": "Future",
+    "AutoReset": false,
+    "StopLossExpression": "close = 0",
+    "StrategyType": "CloseSell"
+}</code><button class="copy-btn">复制</button></pre>
+
+<h4>4. WebSocket合约做多策略 (CloseBuy)</h4>
+<pre><code>/strategy create {
+    "Symbol": "BTCUSDT",
+    "Amount": 1000,
+    "Volatility": 0.002,
+    "Interval": "4h",
+    "AccountType": "Future",
+    "AutoReset": false,
+    "StopLossExpression": "close = 0",
+    "StrategyType": "CloseBuy"
+}</code><button class="copy-btn">复制</button></pre>
+
+<h4>删除策略</h4>
+<pre><code>/strategy delete &lt;Id&gt;</code><button class="copy-btn">复制</button></pre>
+
+<h2 id="警报管理">警报管理</h2>
+
+<h3>支持的时间间隔</h3>
+<ul>
+    <li>5m (5分钟)</li>
+    <li>15m (15分钟)</li>
+    <li>1h (1小时)</li>
+    <li>4h (4小时)</li>
+    <li>1d (1天)</li>
+    <li>3d (3天)</li>
+    <li>1w (1周)</li>
+</ul>
+
+<h3>警报示例</h3>
+
+<h4>1. 价格波动警报</h4>
+<pre><code>/alert create {
+    "Symbol": "BTCUSDT",
+    "Interval": "4h",
+    "Expression": "Math.abs((close - open) / open) &gt;= 0.02"
+}</code><button class="copy-btn">复制</button></pre>
+
+<h4>2. 价格阈值警报</h4>
+<pre><code>/alert create {
+    "Symbol": "BTCUSDT",
+    "Interval": "4h",
+    "Expression": "close &gt; 20000"
+}</code><button class="copy-btn">复制</button></pre>
+
+<h4>删除指定警报</h4>
+<pre><code>/alert delete &lt;Id&gt;</code><button class="copy-btn">复制</button></pre>
+
+<h4>清空所有警报</h4>
+<pre><code>/alert empty</code><button class="copy-btn">复制</button></pre>
+
+</div>
+
+<script>
+
+// 统一处理所有复制按钮
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('copy-btn')) {
+        const code = e.target.previousElementSibling.innerText;
+        navigator.clipboard.writeText(code).then(() => {
+            const oldText = e.target.innerText;
+            e.target.innerText = '已复制';
+            setTimeout(() => e.target.innerText = oldText, 1500);
+        });
+    }
+});
+</script>
+</body>
+</html>
