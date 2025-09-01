@@ -20,13 +20,48 @@ body {
     padding: 20px;
 }
 
-
-/* 标题样式 */
-h1, h2, h3, h4 {
-    color: #333;
+/* H2 标题样式 - 背景色 + 左侧深色条 */
+h2 {
+    background-color: #d9f0d9; /* 浅绿色背景 */
+    padding-left: 20px;         
+    position: relative;
+    border-radius: 4px;
+    margin-top: 30px;
+    margin-bottom: 15px;
 }
-h1 {
-    margin-bottom: 20px;
+h2::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 8px;                 
+    height: 100%;
+    background-color: #4CAF50;  
+    border-radius: 4px 0 0 4px;
+}
+
+h3, h4 {
+    color: #333;
+    margin-top: 20px;
+    margin-bottom: 10px;
+}
+
+/* 目录样式 - 蓝色文字，字体大一点 */
+nav ul {
+    padding-left: 20px;
+    font-size: 18px;       /* 增大字体 */
+}
+nav > ul {
+    list-style-type: disc; /* 第一层实心圆，默认颜色 */
+}
+nav > ul > li > ul {
+    list-style-type: circle; /* 第二层空心圆，默认颜色 */
+    margin-left: 20px;       /* 缩进 */
+}
+nav a {
+    text-decoration: none;
+    color: rgb(3,106,199);          /* 蓝色文字 */
+    font-weight: 400;
 }
 
 /* 表格样式 */
@@ -43,7 +78,6 @@ th, td {
     border: 1px solid #ccc;
 }
 th {
-    background-color: #d9f0d9; /* 浅绿色表头 */
     color: #333;
 }
 
@@ -91,18 +125,26 @@ a:hover {
         font-size: 14px;
         padding: 15px 40px 15px 15px;
     }
-    nav {
-        padding: 10px;
-    }
 }
 </style>
 </head>
 <body>
 <div class="container">
 
-<h1>Trading Service Documentation</h1>
-
+<!-- 目录结构 -->
+<h2 id="目录">目录</h2>
 <nav>
+    <ul>
+        <li><a href="#基础命令">基础命令</a></li>
+        <li><a href="#策略管理">策略管理</a>
+            <ul>
+                <li><a href="#策略类型说明">策略类型说明</a></li>
+                <li><a href="#策略示例">策略示例</a></li>
+            </ul>
+        </li>
+        <li><a href="#警报管理">警报管理</a></li>
+    </ul>
+</nav>
 
 <h2 id="基础命令">基础命令</h2>
 <table>
@@ -178,7 +220,7 @@ a:hover {
     "StrategyType": "CloseBuy"
 }</code><button class="copy-btn">复制</button></pre>
 
-<h4>删除策略</h4>
+<h4>5. 删除策略</h4>
 <pre><code>/strategy delete &lt;Id&gt;</code><button class="copy-btn">复制</button></pre>
 
 <h2 id="警报管理">警报管理</h2>
@@ -195,7 +237,6 @@ a:hover {
 </ul>
 
 <h3>警报示例</h3>
-
 <h4>1. 价格波动警报</h4>
 <pre><code>/alert create {
     "Symbol": "BTCUSDT",
@@ -210,17 +251,16 @@ a:hover {
     "Expression": "close &gt; 20000"
 }</code><button class="copy-btn">复制</button></pre>
 
-<h4>删除指定警报</h4>
+<h4>3. 删除指定警报</h4>
 <pre><code>/alert delete &lt;Id&gt;</code><button class="copy-btn">复制</button></pre>
 
-<h4>清空所有警报</h4>
+<h4>4. 清空所有警报</h4>
 <pre><code>/alert empty</code><button class="copy-btn">复制</button></pre>
 
 </div>
 
 <script>
 
-// 统一处理所有复制按钮
 document.addEventListener('click', function(e) {
     if (e.target.classList.contains('copy-btn')) {
         const code = e.target.previousElementSibling.innerText;
