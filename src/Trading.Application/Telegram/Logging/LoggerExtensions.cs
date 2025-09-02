@@ -23,7 +23,7 @@ public static class LoggerExtensions
     }
 
     /// <summary>
-    /// 记录错误通知日志，并发送 Telegram 通知, 通知没有提示声音
+    /// 记录通知日志，并发送 Telegram 通知, 通知没有提示声音
     /// </summary>
     /// <param name="logger"></param>
     /// <param name="message"></param>

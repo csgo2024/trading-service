@@ -27,9 +27,9 @@ public class HelpCommandHandlerTests
         // Assert
         _mockLogger.Verify(
             x => x.BeginScope(
-                It.Is<TelegramLoggerScope>(x => x.ParseMode == ParseMode.MarkdownV2)),
+                It.Is<TelegramLoggerScope>(x => x.ParseMode == ParseMode.None)),
             Times.Once);
-        _mockLogger.VerifyLoggingOnce(LogLevel.Information, "CloseBuy");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Information, "https://csgo2024.github.io/trading-service/");
 
     }
     [Fact]
