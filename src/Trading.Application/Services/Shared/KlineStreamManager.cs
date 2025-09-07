@@ -1,4 +1,5 @@
 using Binance.Net.Interfaces;
+using CryptoExchange.Net.Objects;
 using CryptoExchange.Net.Objects.Sockets;
 using MediatR;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,11 @@ public class KlineStreamManager : IKlineStreamManager
     private readonly ILogger<KlineStreamManager> _logger;
     private readonly IMediator _mediator;
     private readonly GlobalState _globalState;
+
+    private readonly Action<TimeSpan> _connectionRestoredHandler;
+    private readonly Action _connectionLostHandler;
+    private readonly Action<Error> _resubscribingFailedHandler;
+
     public KlineStreamManager(
         ILogger<KlineStreamManager> logger,
         IMediator mediator,
@@ -31,6 +37,10 @@ public class KlineStreamManager : IKlineStreamManager
         _mediator = mediator;
         _usdFutureSocketClient = usdFutureSocketClient;
         _globalState = globalState;
+
+        _connectionRestoredHandler = (period) => _logger.LogInformation("Connection restored successfully.");
+        _connectionLostHandler = () => _logger.LogWarning("Connection lost for subscription");
+        _resubscribingFailedHandler = (ex) => _logger.LogErrorNotification("Resubscription failed, Error: {@Error}", ex);
         _logger.LogInformation("KlineStreamManager created : {HashCode}", GetHashCode());
     }
 
@@ -59,6 +69,8 @@ public class KlineStreamManager : IKlineStreamManager
                 return false;
             }
 
+            RegisterSubscriptionLifecycleEvents(result.Data);
+
             _globalState.TryAddSymbols(mergedSymbols);
             _globalState.TryAddIntervals(mergedIntervals);
             _globalState.CurrentSubscription = result.Data;
@@ -72,6 +84,27 @@ public class KlineStreamManager : IKlineStreamManager
         return true;
     }
 
+    private void RegisterSubscriptionLifecycleEvents(UpdateSubscription? subscription)
+    {
+        if (subscription == null)
+        {
+            return;
+        }
+        subscription.ConnectionRestored += _connectionRestoredHandler;
+        subscription.ConnectionLost += _connectionLostHandler;
+        subscription.ResubscribingFailed += _resubscribingFailedHandler;
+    }
+
+    private void UnregisterSubscriptionLifecycleEvents(UpdateSubscription? subscription)
+    {
+        if (subscription == null)
+        {
+            return;
+        }
+        subscription.ConnectionRestored -= _connectionRestoredHandler;
+        subscription.ConnectionLost -= _connectionLostHandler;
+        subscription.ResubscribingFailed -= _resubscribingFailedHandler;
+    }
     private bool HasNewSymbolsOrIntervals(
         HashSet<string> symbols,
         HashSet<string> intervals,
@@ -111,6 +144,8 @@ public class KlineStreamManager : IKlineStreamManager
         {
             try
             {
+                UnregisterSubscriptionLifecycleEvents(subscription);
+
                 await subscription.CloseAsync();
                 _globalState.CurrentSubscription = null;
             }
@@ -125,7 +160,12 @@ public class KlineStreamManager : IKlineStreamManager
 
     public void Dispose()
     {
-        _globalState.CurrentSubscription?.CloseAsync().Wait();
+        var subscription = _globalState.CurrentSubscription;
+        if (subscription != null)
+        {
+            UnregisterSubscriptionLifecycleEvents(subscription);
+            subscription.CloseAsync().Wait();
+        }
         _globalState.ClearStreamState();
     }
 
