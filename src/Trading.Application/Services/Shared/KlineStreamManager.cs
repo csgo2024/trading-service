@@ -10,13 +10,13 @@ using Trading.Exchange.Binance.Wrappers.Clients;
 
 namespace Trading.Application.Services.Shared;
 
-public interface IKlineStreamManager : IDisposable
+public interface IKlineStreamManager
 {
     Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct);
     bool NeedsReconnection();
 }
 
-public class KlineStreamManager : IKlineStreamManager
+public class KlineStreamManager : IKlineStreamManager, IAsyncDisposable
 {
     private readonly BinanceSocketClientUsdFuturesApiWrapper _usdFutureSocketClient;
     private readonly ILogger<KlineStreamManager> _logger;
@@ -26,6 +26,8 @@ public class KlineStreamManager : IKlineStreamManager
     private readonly Action<TimeSpan> _connectionRestoredHandler;
     private readonly Action _connectionLostHandler;
     private readonly Action<Error> _resubscribingFailedHandler;
+
+    private bool _disposed;
 
     public KlineStreamManager(
         ILogger<KlineStreamManager> logger,
@@ -46,6 +48,7 @@ public class KlineStreamManager : IKlineStreamManager
 
     public async Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct)
     {
+        ObjectDisposedException.ThrowIf(_disposed, nameof(KlineStreamManager));
         if (symbols.Count == 0 || intervals.Count == 0)
         {
             return false;
@@ -158,15 +161,32 @@ public class KlineStreamManager : IKlineStreamManager
 
     public bool NeedsReconnection() => _globalState.NeedsReconnection();
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
+        // 防止重复释放
+        if (_disposed)
+        {
+            return;
+        }
+        _logger.LogInformation("Disposing KlineStreamManager: {HashCode}", GetHashCode());
+
         var subscription = _globalState.CurrentSubscription;
         if (subscription != null)
         {
             UnregisterSubscriptionLifecycleEvents(subscription);
-            subscription.CloseAsync().Wait();
+            try
+            {
+                await subscription.CloseAsync();
+            }
+            catch (Exception)
+            {
+                // 释放资源的操作不应该抛出异常
+            }
         }
         _globalState.ClearStreamState();
+
+        _disposed = true;
+        GC.SuppressFinalize(this);
     }
 
 }
