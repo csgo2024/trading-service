@@ -39,8 +39,9 @@
     "Amount": 1000,
     "Volatility": 0.2,
     "Interval": "1d",
-    "Leverage": 5,
     "AccountType": "Spot",
+    "AutoReset": false,
+    "StopLossExpression": "close = 0",
     "StrategyType": "OpenBuy"
 }
 ```
@@ -52,8 +53,9 @@
     "Amount": 1000,
     "Volatility": 0.2,
     "Interval": "1d",
-    "Leverage": 5,
     "AccountType": "Future",
+    "AutoReset": false,
+    "StopLossExpression": "close = 0",
     "StrategyType": "OpenSell"
 }
 ```
@@ -66,6 +68,8 @@
     "Volatility": 0.002,
     "Interval": "4h",
     "AccountType": "Future",
+    "AutoReset": false,
+    "StopLossExpression": "close = 0",
     "StrategyType": "CloseSell"
 }
 ```
@@ -78,6 +82,8 @@
     "Volatility": 0.002,
     "Interval": "4h",
     "AccountType": "Future",
+    "AutoReset": false,
+    "StopLossExpression": "close = 0",
     "StrategyType": "CloseBuy"
 }
 ```

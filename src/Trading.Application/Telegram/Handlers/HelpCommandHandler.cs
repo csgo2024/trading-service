@@ -23,7 +23,7 @@ public class HelpCommandHandler : ICommandHandler
 
         using (_logger.BeginScope(telegramScope))
         {
-            _logger.LogInformation(Logging.LoggerExtensions.NotificationEventId, "https://csgo2024.github.io/trading-service/");
+            _logger.LogInformation(Logging.LoggerExtensions.NotificationEventId, "https://github.com/csgo2024/trading-service?tab=readme-ov-file#%E7%9B%AE%E5%BD%95");
         }
         return Task.CompletedTask;
     }

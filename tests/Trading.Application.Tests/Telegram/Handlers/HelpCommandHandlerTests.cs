@@ -29,7 +29,7 @@ public class HelpCommandHandlerTests
             x => x.BeginScope(
                 It.Is<TelegramLoggerScope>(x => x.ParseMode == ParseMode.None)),
             Times.Once);
-        _mockLogger.VerifyLoggingOnce(LogLevel.Information, "https://csgo2024.github.io/trading-service/");
+        _mockLogger.VerifyLoggingOnce(LogLevel.Information, "https://github.com/csgo2024/trading-service?tab=readme-ov-file#%E7%9B%AE%E5%BD%95");
 
     }
     [Fact]
