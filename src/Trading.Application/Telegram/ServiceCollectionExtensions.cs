@@ -27,6 +27,7 @@ public static class ServiceCollectionExtensions
         });
         services.AddSingleton<HelpCommandHandler>();
         services.AddSingleton<DebugCommandHandler>();
+        services.AddSingleton<MarketCommandHandler>();
         services.AddSingleton<StrategyCommandHandler>();
         services.AddSingleton<AlertCommandHandler>();
         services.AddSingleton<TelegramCommandHandlerFactory>();

@@ -15,6 +15,7 @@
 |------|------|--------|
 | `/help` | 显示帮助信息 | - |
 | `/debug` | 查看状态 | - |
+| `/market` | 查看当天BTC行情 | - |
 | `/strategy` | 策略管理 | create, delete, pause, resume |
 | `/alert` | 警报管理 | create, delete, empty, pause, resume |
 
