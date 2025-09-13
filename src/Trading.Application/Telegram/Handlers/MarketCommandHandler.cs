@@ -102,9 +102,11 @@ public class MarketCommandHandler : ICommandHandler
             close: decimal.ToDouble(k.ClosePrice),
             start: k.OpenTime,
             span: span)).ToList();
-        plt.Add.Candlestick(ohlcs);
-        plt.Axes.Left.TickLabelStyle.FontName = "DejaVu Sans";
-        plt.Axes.Left.TickLabelStyle.FontSize = 12;
+        var candles = plt.Add.Candlestick(ohlcs);
+        candles.Axes.YAxis = plt.Axes.Right;
+
+        plt.Axes.Right.TickLabelStyle.FontName = "DejaVu Sans";
+        plt.Axes.Right.TickLabelStyle.FontSize = 12;
 
         plt.Axes.DateTimeTicksBottom();
         return plt.GetImageBytes(600, 600, ImageFormat.Png);
