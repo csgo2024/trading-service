@@ -103,7 +103,9 @@ public class MarketCommandHandler : ICommandHandler
             start: k.OpenTime,
             span: span)).ToList();
         plt.Add.Candlestick(ohlcs);
-        plt.Axes.Bottom.TickLabelStyle.Rotation = -45;
+        plt.Axes.Left.TickLabelStyle.FontName = "DejaVu Sans";
+        plt.Axes.Left.TickLabelStyle.FontSize = 12;
+
         plt.Axes.DateTimeTicksBottom();
         return plt.GetImageBytes(600, 600, ImageFormat.Png);
     }
