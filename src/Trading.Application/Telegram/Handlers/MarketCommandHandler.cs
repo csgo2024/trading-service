@@ -44,8 +44,8 @@ public class MarketCommandHandler : ICommandHandler
     public async Task HandleAsync(string parameters)
     {
         var now = DateTime.UtcNow;
-        var diff = (7 + (now.DayOfWeek - DayOfWeek.Monday)) % 7;
-        var weekStart = now.Date.AddDays(-1 * diff);
+        // var diff = (7 + (now.DayOfWeek - DayOfWeek.Monday)) % 7;
+        var start = now.Date.AddDays(-6); // 取最近7天的数据
 
         // Parse the timeframe parameter and set configuration
         var timeframeConfig = (parameters?.Trim().ToLower() ?? "1d") switch
@@ -62,7 +62,7 @@ public class MarketCommandHandler : ICommandHandler
             )
         };
 
-        var kLines = await GetKlinesAsync("BTCUSDT", timeframeConfig.Interval, timeframeConfig.Limit, weekStart, now);
+        var kLines = await GetKlinesAsync("BTCUSDT", timeframeConfig.Interval, timeframeConfig.Limit, start, now);
         if (kLines.Length == 0)
         {
             return;
@@ -142,11 +142,11 @@ public class MarketCommandHandler : ICommandHandler
         var market = new
         {
             Date = $"{DateTime.UtcNow.AddHours(8):yyyy-MM-dd}",
-            Info = $"{changeText}: {priceChange:F3} ({priceChangePercent:F3}%)",
-            kline.OpenPrice,
-            kline.ClosePrice,
-            kline.LowPrice,
-            kline.HighPrice,
+            Info = $"{changeText}: {priceChange:F3} ({priceChangePercent:F2}%)",
+            Close = kline.ClosePrice,
+            Open = kline.OpenPrice,
+            Low = kline.LowPrice,
+            High = kline.HighPrice,
         };
         return JsonSerializer.Serialize(market, _options);
     }
