@@ -50,11 +50,6 @@ public class MarketCommandHandler : ICommandHandler
         // Parse the timeframe parameter and set configuration
         var timeframeConfig = (parameters?.Trim().ToLower() ?? "1d") switch
         {
-            "1h" => (
-                Interval: KlineInterval.OneHour,
-                Limit: 24 * 7,
-                TimeSpan: TimeSpan.FromHours(1)
-            ),
             "4h" => (
                 Interval: KlineInterval.FourHour,
                 Limit: 6 * 7,

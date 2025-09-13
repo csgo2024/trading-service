@@ -1,6 +1,12 @@
 FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS base
 WORKDIR /app
 EXPOSE 8080
+# fontconfig + Font
+# ScottPlot 5.x  use SkiaSharp for rendering, don't need libgdiplus anymore
+RUN apk add --no-cache \
+    fontconfig \
+    ttf-dejavu \
+    && fc-cache -f -v
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
 ARG BUILD_CONFIGURATION=Release
