@@ -15,6 +15,7 @@
 |------|------|--------|
 | `/help` | 显示帮助信息 | - |
 | `/debug` | 查看状态 | - |
+| `/market` | 查看行情 | - |
 | `/strategy` | 策略管理 | create, delete, pause, resume |
 | `/alert` | 警报管理 | create, delete, empty, pause, resume |
 
@@ -132,6 +133,20 @@
 #### 清空所有警报
 ```
 /alert empty
+```
+## 警报管理
+### 调用格式
+- interval 只支持 1d 4h
+```
+/market <symbol> <interval>
+```
+### 调用示例
+
+```
+/market SOLUSDT 1d
+```
+```
+/market ETHUSDT 4h
 ```
 
 ## 部署说明
