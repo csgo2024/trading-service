@@ -1,6 +1,3 @@
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -8,6 +5,7 @@ using Microsoft.Extensions.Options;
 using ScottPlot;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Models;
@@ -20,7 +18,6 @@ public class MarketCommandHandler : ICommandHandler
     private readonly ILogger<MarketCommandHandler> _logger;
     private readonly IAccountProcessorFactory _accountProcessorFactory;
     public static string Command => "/market";
-    private readonly JsonSerializerOptions _options;
     private readonly ITelegramBotClient _botClient;
     private readonly string _chatId;
 
@@ -33,12 +30,6 @@ public class MarketCommandHandler : ICommandHandler
         _accountProcessorFactory = accountProcessorFactory;
         _botClient = botClient;
         _chatId = settings.Value.ChatId ?? throw new ArgumentNullException(nameof(settings), "TelegramSettings is not valid.");
-        _options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
     }
 
     public async Task HandleAsync(string parameters)
@@ -77,7 +68,7 @@ public class MarketCommandHandler : ICommandHandler
         ms.Position = 0;
         var inputFile = InputFile.FromStream(ms, fileName: "candlestick.png");
 
-        await _botClient.SendPhoto(chatId: _chatId, photo: inputFile, caption: caption);
+        await _botClient.SendPhoto(chatId: _chatId, photo: inputFile, caption: caption, parseMode: ParseMode.Html);
     }
 
     public Task HandleCallbackAsync(string action, string parameters)
@@ -133,7 +124,7 @@ public class MarketCommandHandler : ICommandHandler
         return result.Data;
     }
 
-    private string GetCurrentDayKlineInfo(IBinanceKline[]? dailyKlines = null)
+    private static string GetCurrentDayKlineInfo(IBinanceKline[]? dailyKlines = null)
     {
         IBinanceKline kline;
 
@@ -150,16 +141,18 @@ public class MarketCommandHandler : ICommandHandler
         var priceChangePercent = priceChange / kline.OpenPrice * 100;
         var changeText = priceChange >= 0 ? "上涨" : "下跌";
 
-        var market = new
-        {
-            Date = $"{DateTime.UtcNow.AddHours(8):yyyy-MM-dd}",
-            Info = $"{changeText}: {priceChange:F3} ({priceChangePercent:F2}%)",
-            Close = kline.ClosePrice,
-            Open = kline.OpenPrice,
-            Low = kline.LowPrice,
-            High = kline.HighPrice,
-        };
-        return JsonSerializer.Serialize(market, _options);
+        var result = $"""
+<b> Date:</b> {DateTime.UtcNow.AddHours(8):yyyy-MM-dd}
+<b> Change:</b> ({changeText} {priceChange:F3} ({priceChangePercent:F2}%))
+<pre>
+<b> Prices:</b>
+• <b>Close:</b> {kline.ClosePrice}
+• <b>Open:</b> {kline.OpenPrice}
+• <b>Low:</b> {kline.LowPrice}
+• <b>High:</b> {kline.HighPrice}
+</pre>
+""";
+        return result;
     }
     #endregion
 }
