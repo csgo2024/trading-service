@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using ScottPlot;
 using Telegram.Bot;
 using Telegram.Bot.Types;
+using Telegram.Bot.Types.Enums;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Models;
@@ -67,7 +68,7 @@ public class MarketCommandHandler : ICommandHandler
         ms.Position = 0;
         var inputFile = InputFile.FromStream(ms, fileName: "candlestick.png");
 
-        await _botClient.SendPhoto(chatId: _chatId, photo: inputFile, caption: caption);
+        await _botClient.SendPhoto(chatId: _chatId, photo: inputFile, caption: caption, parseMode: ParseMode.Html);
     }
 
     public Task HandleCallbackAsync(string action, string parameters)
@@ -141,12 +142,15 @@ public class MarketCommandHandler : ICommandHandler
         var changeText = priceChange >= 0 ? "上涨" : "下跌";
 
         var result = $"""
-Date={DateTime.UtcNow.AddHours(8):yyyy-MM-dd}
-Info={changeText}: {priceChange:F3} ({priceChangePercent:F2}%)
-Close={kline.ClosePrice}
-Open={kline.OpenPrice}
-Low={kline.LowPrice}
-High={kline.HighPrice}
+<b> Date:</b> {DateTime.UtcNow.AddHours(8):yyyy-MM-dd}
+
+<b> Change:</b> {changeText} {priceChange:F3} ({priceChangePercent:F2}%)
+
+<b> Prices:</b><br>
+• <b>Close:</b> {kline.ClosePrice}<br>
+• <b>Open:</b> {kline.OpenPrice}<br>
+• <b>Low:</b> {kline.LowPrice}<br>
+• <b>High:</b> {kline.HighPrice}
 """;
         return result;
     }
