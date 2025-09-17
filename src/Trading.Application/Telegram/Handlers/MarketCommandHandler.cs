@@ -34,6 +34,7 @@ public class MarketCommandHandler : ICommandHandler
 
     public async Task HandleAsync(string parameters)
     {
+        _logger.LogInfoNotification("Market command received.");
         var (symbol, interval) = ParseParameters(parameters);
 
         var during = 15;  // 取最近15天的数据
@@ -145,7 +146,6 @@ public class MarketCommandHandler : ICommandHandler
 {{changeText}}: {{priceChange:F3}} ({{priceChangePercent:F2}}%)
 close: {{kline.ClosePrice}} open: {{kline.OpenPrice}}
 low: {{kline.LowPrice}} high: {{kline.HighPrice}}
-{{DateTime.UtcNow.AddHours(8):yyyy-MM-dd}}
 """;
         return result;
     }
