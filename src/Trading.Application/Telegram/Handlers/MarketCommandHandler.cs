@@ -1,6 +1,3 @@
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using Binance.Net.Enums;
 using Binance.Net.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -20,7 +17,6 @@ public class MarketCommandHandler : ICommandHandler
     private readonly ILogger<MarketCommandHandler> _logger;
     private readonly IAccountProcessorFactory _accountProcessorFactory;
     public static string Command => "/market";
-    private readonly JsonSerializerOptions _options;
     private readonly ITelegramBotClient _botClient;
     private readonly string _chatId;
 
@@ -33,12 +29,6 @@ public class MarketCommandHandler : ICommandHandler
         _accountProcessorFactory = accountProcessorFactory;
         _botClient = botClient;
         _chatId = settings.Value.ChatId ?? throw new ArgumentNullException(nameof(settings), "TelegramSettings is not valid.");
-        _options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
     }
 
     public async Task HandleAsync(string parameters)
@@ -133,7 +123,7 @@ public class MarketCommandHandler : ICommandHandler
         return result.Data;
     }
 
-    private string GetCurrentDayKlineInfo(IBinanceKline[]? dailyKlines = null)
+    private static string GetCurrentDayKlineInfo(IBinanceKline[]? dailyKlines = null)
     {
         IBinanceKline kline;
 
@@ -150,16 +140,15 @@ public class MarketCommandHandler : ICommandHandler
         var priceChangePercent = priceChange / kline.OpenPrice * 100;
         var changeText = priceChange >= 0 ? "上涨" : "下跌";
 
-        var market = new
-        {
-            Date = $"{DateTime.UtcNow.AddHours(8):yyyy-MM-dd}",
-            Info = $"{changeText}: {priceChange:F3} ({priceChangePercent:F2}%)",
-            Close = kline.ClosePrice,
-            Open = kline.OpenPrice,
-            Low = kline.LowPrice,
-            High = kline.HighPrice,
-        };
-        return JsonSerializer.Serialize(market, _options);
+        var result = $"""
+Date={DateTime.UtcNow.AddHours(8):yyyy-MM-dd}
+Info={changeText}: {priceChange:F3} ({priceChangePercent:F2}%)
+Close={kline.ClosePrice}
+Open={kline.OpenPrice}
+Low={kline.LowPrice}
+High={kline.HighPrice}
+""";
+        return result;
     }
     #endregion
 }
