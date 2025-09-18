@@ -73,8 +73,8 @@ stages:
 
   - template: semver-job.yml@templates
     parameters:
-      major: 0
-      minor: 7
+      major: 1
+      minor: 0
       patch: 0
       environment: 'production'
 
@@ -126,4 +126,4 @@ stages:
     - job: create_git_tag
       displayName: 'Create Git Tag'
       steps:
-        - template: create-git-tag.yml@templates 
+        - template: create-git-tag.yml@templates
