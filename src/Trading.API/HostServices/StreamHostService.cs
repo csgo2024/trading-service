@@ -36,6 +36,10 @@ public class StreamHostService : BackgroundService
                     await WaitForNextReconnection(stoppingToken);
                 }
             }
+            catch (OperationCanceledException)
+            {
+                // Ignore cancellation exceptions
+            }
             catch (Exception ex)
             {
                 _isSubscribed = false;
