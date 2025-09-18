@@ -38,9 +38,6 @@ internal sealed class StreamState
 {
     private readonly HashSet<string> _symbols = new();
     private readonly HashSet<string> _intervals = new();
-
-    // Binance stream max lifetime is 24 hours, reconnect every 23 hours and 53 minutes
-    private readonly TimeSpan _reconnectInterval = TimeSpan.FromMinutes(23 * 60 + 53);
     public DateTime? LastConnectionTime { get; set; }
     public UpdateSubscription? CurrentSubscription { get; set; }
 
@@ -61,6 +58,30 @@ internal sealed class StreamState
     public HashSet<string> GetAllSymbols() => [.. _symbols];
     public HashSet<string> GetAllIntervals() => [.. _intervals];
 
+    // Binance stream max lifetime is 24 hours, reconnect at 09:00 UTC+8 or 21:00 UTC+8
+    public static DateTime GetNextReconnectTime(DateTime utcNow)
+    {
+        if (utcNow.Kind != DateTimeKind.Utc)
+        {
+            utcNow = DateTime.SpecifyKind(utcNow, DateTimeKind.Utc);
+        }
+        var todayMorning = utcNow.Date.AddHours(1);
+        var todayEvening = utcNow.Date.AddHours(13);
+
+        if (utcNow <= todayMorning)
+        {
+            return todayMorning;
+        }
+
+        if (utcNow <= todayEvening)
+        {
+            return todayEvening;
+        }
+
+        // next day morning
+        return todayMorning.AddDays(1);
+    }
+
     public void ClearStreamState()
     {
         _symbols.Clear();
@@ -68,9 +89,6 @@ internal sealed class StreamState
         CurrentSubscription = null;
         LastConnectionTime = null;
     }
-
-    public bool NeedsReconnection() =>
-        LastConnectionTime == null || (DateTime.UtcNow - LastConnectionTime.Value) > _reconnectInterval;
 }
 
 public class GlobalState
@@ -116,8 +134,7 @@ public class GlobalState
     public virtual HashSet<string> GetAllSymbols() => _stream.GetAllSymbols();
     public virtual HashSet<string> GetAllIntervals() => _stream.GetAllIntervals();
     public virtual void ClearStreamState() => _stream.ClearStreamState();
-    public virtual bool NeedsReconnection() => _stream.NeedsReconnection();
-
+    public virtual DateTime NextReconnectTime(DateTime date) => StreamState.GetNextReconnectTime(date);
     public virtual bool TryAddTask(TaskInfo taskInfo) => _taskState.TryAdd(taskInfo.Id, taskInfo);
     public virtual bool TryRemoveTask(string taskId, out TaskInfo? taskInfo) => _taskState.TryRemove(taskId, out taskInfo);
     public virtual bool TryGetTask(string taskId, out TaskInfo? taskInfo) => _taskState.TryGetValue(taskId, out taskInfo);

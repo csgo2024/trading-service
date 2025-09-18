@@ -12,8 +12,8 @@ namespace Trading.Application.Services.Shared;
 
 public interface IKlineStreamManager
 {
-    Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct);
-    bool NeedsReconnection();
+    Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct, bool force = false);
+    DateTime GetNextReconnectTime(DateTime dateTime);
 }
 
 public class KlineStreamManager : IKlineStreamManager, IAsyncDisposable
@@ -46,7 +46,7 @@ public class KlineStreamManager : IKlineStreamManager, IAsyncDisposable
         _logger.LogInformation("KlineStreamManager created : {HashCode}", GetHashCode());
     }
 
-    public async Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct)
+    public async Task<bool> SubscribeSymbols(HashSet<string> symbols, HashSet<string> intervals, CancellationToken ct, bool force = false)
     {
         ObjectDisposedException.ThrowIf(_disposed, nameof(KlineStreamManager));
         if (symbols.Count == 0 || intervals.Count == 0)
@@ -55,8 +55,8 @@ public class KlineStreamManager : IKlineStreamManager, IAsyncDisposable
         }
         var hasChanges = HasNewSymbolsOrIntervals(symbols, intervals, out var mergedSymbols, out var mergedIntervals);
 
-        // 只在有新 symbol/interval 或者 需要重新连接时才触发订阅
-        if (hasChanges || NeedsReconnection())
+        // subscribe only if there are new symbols/intervals or if forced
+        if (hasChanges || force)
         {
             await CloseExistingSubscription();
 
@@ -159,7 +159,7 @@ public class KlineStreamManager : IKlineStreamManager, IAsyncDisposable
         }
     }
 
-    public bool NeedsReconnection() => _globalState.NeedsReconnection();
+    public DateTime GetNextReconnectTime(DateTime dateTime) => _globalState.NextReconnectTime(dateTime);
 
     public async ValueTask DisposeAsync()
     {
