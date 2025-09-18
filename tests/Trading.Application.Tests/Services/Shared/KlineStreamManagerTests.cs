@@ -130,12 +130,11 @@ public class KlineStreamManagerTests
     [Fact]
     public async Task SubscribeSymbols_WhenNoNewSymbolsOrIntervals_ShouldSkipResubscription()
     {
-        _mockState.Setup(x => x.GetAllSymbols()).Returns(new HashSet<string> { "BTCUSDT" });
-        _mockState.Setup(x => x.GetAllIntervals()).Returns(new HashSet<string> { "5m" });
-        _mockState.Setup(x => x.NeedsReconnection()).Returns(false);
+        _mockState.Setup(x => x.GetAllSymbols()).Returns(["BTCUSDT"]);
+        _mockState.Setup(x => x.GetAllIntervals()).Returns(["5m"]);
 
         using var cts = new CancellationTokenSource();
-        var result = await _manager.SubscribeSymbols(new HashSet<string> { "BTCUSDT" }, new HashSet<string> { "5m" }, cts.Token);
+        var result = await _manager.SubscribeSymbols(["BTCUSDT"], ["5m"], cts.Token);
 
         Assert.True(result);
         _mockExchangeData.Verify(
@@ -148,12 +147,11 @@ public class KlineStreamManagerTests
             Times.Never);
     }
     [Fact]
-    public async Task SubscribeSymbols_WhenNeedReconnect_ShouldResubscription()
+    public async Task SubscribeSymbols_WhenForceReconnect_ShouldResubscription()
     {
         // arrange
         _mockState.Setup(x => x.GetAllSymbols()).Returns(["BTCUSDT"]);
         _mockState.Setup(x => x.GetAllIntervals()).Returns(["5m"]);
-        _mockState.Setup(x => x.NeedsReconnection()).Returns(true);
         _mockExchangeData
             .Setup(x => x.SubscribeToKlineUpdatesAsync(
                 It.IsAny<IEnumerable<string>>(),
@@ -165,7 +163,7 @@ public class KlineStreamManagerTests
 
         // act
         using var cts = new CancellationTokenSource();
-        await _manager.SubscribeSymbols(new HashSet<string> { "BTCUSDT" }, new HashSet<string> { "5m" }, cts.Token);
+        await _manager.SubscribeSymbols(["BTCUSDT"], ["5m"], cts.Token, true);
 
         // assert
         _mockExchangeData.Verify(
@@ -176,15 +174,5 @@ public class KlineStreamManagerTests
                 It.IsAny<bool>(),
                 It.IsAny<CancellationToken>()),
             Times.Once);
-    }
-
-    [Fact]
-    public void NeedsReconnection_ShouldReturnGlobalStateValue()
-    {
-        _mockState.Setup(s => s.NeedsReconnection()).Returns(true);
-        Assert.True(_manager.NeedsReconnection());
-
-        _mockState.Setup(s => s.NeedsReconnection()).Returns(false);
-        Assert.False(_manager.NeedsReconnection());
     }
 }

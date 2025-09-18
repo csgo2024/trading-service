@@ -45,7 +45,8 @@ public class StreamHostServiceTests
                          .ReturnsAsync(strategies);
         _streamManagerMock.Setup(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
                                                          It.IsAny<HashSet<string>>(),
-                                                         It.IsAny<CancellationToken>()))
+                                                         It.IsAny<CancellationToken>(),
+                                                         It.IsAny<bool>()))
                           .ReturnsAsync(true);
 
         var service = new TestStreamHostService(_loggerMock.Object,
@@ -62,7 +63,8 @@ public class StreamHostServiceTests
         Assert.True(service.DelayCalled);
         _streamManagerMock.Verify(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
                                                           It.IsAny<HashSet<string>>(),
-                                                          It.IsAny<CancellationToken>()),
+                                                          It.IsAny<CancellationToken>(),
+                                                          It.IsAny<bool>()),
                                   Times.AtLeastOnce);
     }
 
@@ -88,7 +90,8 @@ public class StreamHostServiceTests
         // Assert
         _streamManagerMock.Verify(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
                                                           It.IsAny<HashSet<string>>(),
-                                                          It.IsAny<CancellationToken>()),
+                                                          It.IsAny<CancellationToken>(),
+                                                          It.IsAny<bool>()),
                                   Times.Never);
     }
 
@@ -103,12 +106,13 @@ public class StreamHostServiceTests
                       .ReturnsAsync(alerts);
         _strategyRepoMock.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
                          .ReturnsAsync(strategies);
-        _streamManagerMock.SetupSequence(m => m.NeedsReconnection())
-                          .Returns(false)
-                          .Returns(true);
+        _streamManagerMock.Setup(x => x.GetNextReconnectTime(It.IsAny<DateTime>()))
+            .Returns(DateTime.UtcNow.AddHours(1));
+
         _streamManagerMock.Setup(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
                                                          It.IsAny<HashSet<string>>(),
-                                                         It.IsAny<CancellationToken>()))
+                                                         It.IsAny<CancellationToken>(),
+                                                         It.IsAny<bool>()))
                           .ReturnsAsync(true);
 
         var service = new TestStreamHostService(_loggerMock.Object,
@@ -116,16 +120,18 @@ public class StreamHostServiceTests
                                                 _strategyRepoMock.Object,
                                                 _streamManagerMock.Object);
 
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
         // Act
         await service.StartAsync(cts.Token);
 
         // Assert
+        _loggerMock.VerifyLoggingTimes(LogLevel.Information, "Reconnection completed successfully", Times.AtLeastOnce);
         _streamManagerMock.Verify(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
                                                           It.IsAny<HashSet<string>>(),
-                                                          It.IsAny<CancellationToken>()),
-                                  Times.AtLeast(2));
+                                                          It.IsAny<CancellationToken>(),
+                                                          It.IsAny<bool>()),
+                                  Times.AtLeast(1));
     }
 
     [Fact]
