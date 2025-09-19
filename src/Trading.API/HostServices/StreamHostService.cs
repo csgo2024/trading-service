@@ -11,6 +11,7 @@ public class StreamHostService : BackgroundService
     private readonly ILogger<StreamHostService> _logger;
     private readonly IStrategyRepository _strategyRepository;
 
+    private bool _initial = true;
     private bool _isSubscribed;
 
     public StreamHostService(ILogger<StreamHostService> logger,
@@ -30,38 +31,65 @@ public class StreamHostService : BackgroundService
         {
             try
             {
-                // 初次订阅
-                if (!_isSubscribed)
+                if (await TrySubscribe(stoppingToken))
                 {
-                    _isSubscribed = await SubscribeFromDatabase(stoppingToken);
-                    if (_isSubscribed)
-                    {
-                        _logger.LogInfoNotification("Initial subscription completed successfully");
-                    }
+                    await WaitForNextReconnection(stoppingToken);
                 }
-                // Reconnect 时重新订阅
-                else if (_klineStreamManager.NeedsReconnection())
+                else
                 {
-                    _isSubscribed = await SubscribeFromDatabase(stoppingToken);
-                    if (_isSubscribed)
-                    {
-                        _logger.LogInfoNotification("Reconnection completed successfully");
-                    }
+                    await SimulateDelay(TimeSpan.FromSeconds(10), stoppingToken);
                 }
+            }
+            catch (OperationCanceledException)
+            {
+                // Ignore cancellation exceptions
             }
             catch (Exception ex)
             {
-                var errorMessage = !_isSubscribed
-                    ? "Initial subscription failed. Retrying in 1 minute..."
-                    : "Reconnection failed. Retrying in 1 minute...";
-
+                _isSubscribed = false;
+                var errorMessage = _initial
+                    ? "Initial subscription failed. Retrying in 10 seconds..."
+                    : "Reconnection failed. Retrying in 10 seconds...";
                 _logger.LogErrorNotification(ex, errorMessage);
+                await SimulateDelay(TimeSpan.FromSeconds(10), stoppingToken);
             }
-            await SimulateDelay(TimeSpan.FromSeconds(10), stoppingToken);
         }
     }
 
-    private async Task<bool> SubscribeFromDatabase(CancellationToken stoppingToken)
+    private async Task<bool> TrySubscribe(CancellationToken stoppingToken)
+    {
+        var wasInitial = _initial;
+        _isSubscribed = await SubscribeFromDatabase(stoppingToken);
+
+        if (_isSubscribed)
+        {
+            if (wasInitial)
+            {
+                _initial = false;
+                _logger.LogInfoNotification("Initial subscription completed successfully");
+            }
+            else
+            {
+                _logger.LogInfoNotification("Reconnection completed successfully");
+            }
+        }
+
+        return _isSubscribed;
+    }
+
+    private async Task WaitForNextReconnection(CancellationToken stoppingToken)
+    {
+        var now = DateTime.UtcNow;
+        var nextRun = _klineStreamManager.GetNextReconnectTime(now);
+        var delay = nextRun - now;
+
+        if (delay.TotalMilliseconds > 0)
+        {
+            await SimulateDelay(delay, stoppingToken);
+        }
+    }
+
+    private async Task<bool> SubscribeFromDatabase(CancellationToken stoppingToken, bool force = true)
     {
         var alerts = await _alertRepository.GetActiveAlertsAsync(stoppingToken);
         var strategies = await _strategyRepository.GetActiveStrategyAsync(stoppingToken);
@@ -79,7 +107,7 @@ public class StreamHostService : BackgroundService
             return false;
         }
 
-        return await _klineStreamManager.SubscribeSymbols(symbols, intervals, stoppingToken);
+        return await _klineStreamManager.SubscribeSymbols(symbols, intervals, stoppingToken, force);
     }
 
     public virtual Task SimulateDelay(TimeSpan delay, CancellationToken cancellationToken)

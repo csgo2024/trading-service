@@ -130,12 +130,11 @@ public class KlineStreamManagerTests
     [Fact]
     public async Task SubscribeSymbols_WhenNoNewSymbolsOrIntervals_ShouldSkipResubscription()
     {
-        _mockState.Setup(x => x.GetAllSymbols()).Returns(new HashSet<string> { "BTCUSDT" });
-        _mockState.Setup(x => x.GetAllIntervals()).Returns(new HashSet<string> { "5m" });
-        _mockState.Setup(x => x.NeedsReconnection()).Returns(false);
+        _mockState.Setup(x => x.GetAllSymbols()).Returns(["BTCUSDT"]);
+        _mockState.Setup(x => x.GetAllIntervals()).Returns(["5m"]);
 
         using var cts = new CancellationTokenSource();
-        var result = await _manager.SubscribeSymbols(new HashSet<string> { "BTCUSDT" }, new HashSet<string> { "5m" }, cts.Token);
+        var result = await _manager.SubscribeSymbols(["BTCUSDT"], ["5m"], cts.Token);
 
         Assert.True(result);
         _mockExchangeData.Verify(
@@ -148,12 +147,11 @@ public class KlineStreamManagerTests
             Times.Never);
     }
     [Fact]
-    public async Task SubscribeSymbols_WhenNeedReconnect_ShouldResubscription()
+    public async Task SubscribeSymbols_WhenForceReconnect_ShouldResubscription()
     {
         // arrange
         _mockState.Setup(x => x.GetAllSymbols()).Returns(["BTCUSDT"]);
         _mockState.Setup(x => x.GetAllIntervals()).Returns(["5m"]);
-        _mockState.Setup(x => x.NeedsReconnection()).Returns(true);
         _mockExchangeData
             .Setup(x => x.SubscribeToKlineUpdatesAsync(
                 It.IsAny<IEnumerable<string>>(),
@@ -165,7 +163,7 @@ public class KlineStreamManagerTests
 
         // act
         using var cts = new CancellationTokenSource();
-        await _manager.SubscribeSymbols(new HashSet<string> { "BTCUSDT" }, new HashSet<string> { "5m" }, cts.Token);
+        await _manager.SubscribeSymbols(["BTCUSDT"], ["5m"], cts.Token, true);
 
         // assert
         _mockExchangeData.Verify(
@@ -177,14 +175,64 @@ public class KlineStreamManagerTests
                 It.IsAny<CancellationToken>()),
             Times.Once);
     }
+    public static TheoryData<DateTime, DateTime> GetNextReconnectTestCases()
+    {
+        var data = new TheoryData<DateTime, DateTime>();
+
+        // 01:00 前 -> 当天 01:00
+        data.Add(new DateTime(2025, 9, 18, 0, 0, 0, DateTimeKind.Utc),
+                 new DateTime(2025, 9, 18, 1, 0, 0, DateTimeKind.Utc));
+
+        // 正好 01:00 -> 01:00
+        data.Add(new DateTime(2025, 9, 18, 1, 0, 0, DateTimeKind.Utc),
+                 new DateTime(2025, 9, 18, 1, 0, 0, DateTimeKind.Utc));
+
+        // 01:00 之后 -> 当天 13:00
+        data.Add(new DateTime(2025, 9, 18, 1, 0, 1, DateTimeKind.Utc),
+                 new DateTime(2025, 9, 18, 13, 0, 0, DateTimeKind.Utc));
+
+        // 13:00 前 -> 当天 13:00
+        data.Add(new DateTime(2025, 9, 18, 12, 59, 59, DateTimeKind.Utc),
+                 new DateTime(2025, 9, 18, 13, 0, 0, DateTimeKind.Utc));
+
+        // 正好 13:00 -> 13:00
+        data.Add(new DateTime(2025, 9, 18, 13, 0, 0, DateTimeKind.Utc),
+                 new DateTime(2025, 9, 18, 13, 0, 0, DateTimeKind.Utc));
+
+        // 晚于 13:00 -> 次日 01:00
+        data.Add(new DateTime(2025, 9, 18, 13, 0, 1, DateTimeKind.Utc),
+                 new DateTime(2025, 9, 19, 1, 0, 0, DateTimeKind.Utc));
+
+        // 跨年 -> 次年 01:00
+        data.Add(new DateTime(2024, 12, 31, 22, 30, 0, DateTimeKind.Utc),
+                 new DateTime(2025, 1, 1, 1, 0, 0, DateTimeKind.Utc));
+
+        // 闰日 -> 次日 01:00
+        data.Add(new DateTime(2020, 2, 29, 23, 59, 59, DateTimeKind.Utc),
+                 new DateTime(2020, 3, 1, 1, 0, 0, DateTimeKind.Utc));
+
+        return data;
+    }
+
+    [Theory]
+    [MemberData(nameof(GetNextReconnectTestCases))]
+    public void GetNextReconnectTime_ReturnsExpectedUtc(DateTime nowUtc, DateTime expectedUtc)
+    {
+        var result = _manager.GetNextReconnectTime(nowUtc);
+
+        Assert.Equal(expectedUtc, result);                  // 精确等于
+        Assert.Equal(DateTimeKind.Utc, result.Kind);        // Kind 为 UTC
+    }
 
     [Fact]
-    public void NeedsReconnection_ShouldReturnGlobalStateValue()
+    public void ReturnedTime_IsAlwaysOn9Or21AndZeroMinutesSeconds()
     {
-        _mockState.Setup(s => s.NeedsReconnection()).Returns(true);
-        Assert.True(_manager.NeedsReconnection());
+        var now = new DateTime(2024, 12, 31, 22, 30, 0, DateTimeKind.Utc);
+        var result = _manager.GetNextReconnectTime(now).AddHours(8); // UTC+8
 
-        _mockState.Setup(s => s.NeedsReconnection()).Returns(false);
-        Assert.False(_manager.NeedsReconnection());
+        Assert.True(result.Hour == 9 || result.Hour == 21, $"The returned hour should be 9 or 21, but was {result.Hour}");
+        Assert.Equal(0, result.Minute);
+        Assert.Equal(0, result.Second);
+        Assert.Equal(0, result.Millisecond);
     }
 }
