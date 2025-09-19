@@ -1,10 +1,11 @@
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.API.HostServices;
-using Trading.API.Tests;
 using Trading.Application.Services.Shared;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
+
+namespace Trading.API.Tests.HostServices;
 
 public class StreamHostServiceTests
 {
@@ -60,7 +61,6 @@ public class StreamHostServiceTests
         await service.StartAsync(cts.Token);
 
         // Assert
-        Assert.True(service.DelayCalled);
         _streamManagerMock.Verify(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
                                                           It.IsAny<HashSet<string>>(),
                                                           It.IsAny<CancellationToken>(),
@@ -126,6 +126,7 @@ public class StreamHostServiceTests
         await service.StartAsync(cts.Token);
 
         // Assert
+        _loggerMock.VerifyLoggingTimes(LogLevel.Information, "Initial subscription completed successfully", Times.Once);
         _loggerMock.VerifyLoggingTimes(LogLevel.Information, "Reconnection completed successfully", Times.AtLeastOnce);
         _streamManagerMock.Verify(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
                                                           It.IsAny<HashSet<string>>(),

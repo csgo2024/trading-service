@@ -35,6 +35,10 @@ public class StreamHostService : BackgroundService
                 {
                     await WaitForNextReconnection(stoppingToken);
                 }
+                else
+                {
+                    await SimulateDelay(TimeSpan.FromSeconds(10), stoppingToken);
+                }
             }
             catch (OperationCanceledException)
             {
@@ -47,8 +51,8 @@ public class StreamHostService : BackgroundService
                     ? "Initial subscription failed. Retrying in 10 seconds..."
                     : "Reconnection failed. Retrying in 10 seconds...";
                 _logger.LogErrorNotification(ex, errorMessage);
+                await SimulateDelay(TimeSpan.FromSeconds(10), stoppingToken);
             }
-            await SimulateDelay(TimeSpan.FromSeconds(10), stoppingToken);
         }
     }
 
@@ -75,11 +79,6 @@ public class StreamHostService : BackgroundService
 
     private async Task WaitForNextReconnection(CancellationToken stoppingToken)
     {
-        if (!_isSubscribed)
-        {
-            return;
-        }
-
         var now = DateTime.UtcNow;
         var nextRun = _klineStreamManager.GetNextReconnectTime(now);
         var delay = nextRun - now;

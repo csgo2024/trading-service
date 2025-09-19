@@ -159,7 +159,32 @@ public class KlineStreamManager : IKlineStreamManager, IAsyncDisposable
         }
     }
 
-    public DateTime GetNextReconnectTime(DateTime dateTime) => _globalState.NextReconnectTime(dateTime);
+    /// <summary>
+    /// Binance stream max lifetime is 24 hours, reconnect at 09:00 UTC+8 or 21:00 UTC+8
+    /// </summary>
+    /// <param name="dateTime"></param>
+    /// <returns></returns>
+    public DateTime GetNextReconnectTime(DateTime dateTime)
+    {
+        if (dateTime.Kind != DateTimeKind.Utc)
+        {
+            throw new ArgumentException("Input DateTime must be in UTC format.", nameof(dateTime));
+        }
+        var todayMorning = dateTime.Date.AddHours(1);
+        var todayEvening = dateTime.Date.AddHours(13);
+
+        if (dateTime <= todayMorning)
+        {
+            return todayMorning;
+        }
+
+        if (dateTime <= todayEvening)
+        {
+            return todayEvening;
+        }
+        // next day morning
+        return todayMorning.AddDays(1);
+    }
 
     public async ValueTask DisposeAsync()
     {
