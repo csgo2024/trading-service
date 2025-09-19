@@ -172,6 +172,5 @@ public class GlobalStateTests
         Assert.Equal("strategy1", removedStrategy.Id);
         Assert.Empty(_globalState.GetAllStrategies());
     }
-
     #endregion
 }
