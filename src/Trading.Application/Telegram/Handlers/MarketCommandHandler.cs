@@ -9,9 +9,38 @@ using Telegram.Bot.Types.Enums;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Models;
+using Trading.Exchange.Binance.Extensions;
 using AccountType = Trading.Common.Enums.AccountType;
 
 namespace Trading.Application.Telegram.Handlers;
+
+public static class ChartGenerator
+{
+    private const int Width = 600;
+    private const int Height = 600;
+    private const string FontName = "DejaVu Sans";
+
+    public static byte[] Candlestick(IBinanceKline[] klines, TimeSpan timeSpan)
+    {
+        var plot = new Plot();
+        plot.Axes.Right.TickLabelStyle.FontName = FontName;
+        plot.Axes.Right.TickLabelStyle.FontSize = 12;
+
+        var ohlcs = klines.Select(k => new OHLC(
+            (double)k.OpenPrice,
+            (double)k.HighPrice,
+            (double)k.LowPrice,
+            (double)k.ClosePrice,
+            k.OpenTime,
+            timeSpan)).ToList();
+
+        var candlestickPlot = plot.Add.Candlestick(ohlcs);
+        candlestickPlot.Axes.YAxis = plot.Axes.Right;
+
+        plot.Axes.DateTimeTicksBottom();
+        return plot.GetImageBytes(Width, Height, ImageFormat.Png);
+    }
+}
 
 public class MarketCommandHandler : ICommandHandler
 {
@@ -40,7 +69,7 @@ public class MarketCommandHandler : ICommandHandler
         var during = 15;  // 取最近15天的数据
 
         // Parse the timeframe parameter and set configuration
-        var timeframeConfig = interval switch
+        var config = interval switch
         {
             "4h" => (
                 Interval: KlineInterval.FourHour,
@@ -54,18 +83,15 @@ public class MarketCommandHandler : ICommandHandler
             )
         };
 
-        var kLines = await GetKlinesAsync(symbol, timeframeConfig.Interval, timeframeConfig.Limit);
+        var kLines = await GetKlinesAsync(symbol, config.Interval, config.Limit);
         if (kLines.Length == 0)
         {
             return;
         }
 
-        var caption = timeframeConfig.Interval == KlineInterval.OneDay
-            ? GetCurrentDayKlineInfo(kLines)
-            : GetCurrentDayKlineInfo(await GetKlinesAsync(symbol, KlineInterval.OneDay, 1));
-
-        var pngBytes = GenerateCandleChartImageBytes(kLines, timeframeConfig.TimeSpan);
-        using var ms = new MemoryStream(pngBytes);
+        var caption = await GenerateDailySummaryAsync(symbol, kLines);
+        var bytes = ChartGenerator.Candlestick(kLines, config.TimeSpan);
+        using var ms = new MemoryStream(bytes);
         ms.Position = 0;
         var inputFile = InputFile.FromStream(ms, fileName: "candlestick.png");
 
@@ -93,26 +119,6 @@ public class MarketCommandHandler : ICommandHandler
         return (symbol, interval);
     }
 
-    private static byte[] GenerateCandleChartImageBytes(IBinanceKline[] klines, TimeSpan span)
-    {
-        using var plt = new Plot();
-        var ohlcs = klines.Select(k => new OHLC(
-            open: decimal.ToDouble(k.OpenPrice),
-            high: decimal.ToDouble(k.HighPrice),
-            low: decimal.ToDouble(k.LowPrice),
-            close: decimal.ToDouble(k.ClosePrice),
-            start: k.OpenTime,
-            span: span)).ToList();
-        var candles = plt.Add.Candlestick(ohlcs);
-        candles.Axes.YAxis = plt.Axes.Right;
-
-        plt.Axes.Right.TickLabelStyle.FontName = "DejaVu Sans";
-        plt.Axes.Right.TickLabelStyle.FontSize = 12;
-
-        plt.Axes.DateTimeTicksBottom();
-        return plt.GetImageBytes(600, 600, ImageFormat.Png);
-    }
-
     private async Task<IBinanceKline[]> GetKlinesAsync(string symbol, KlineInterval interval, int limit, DateTime? startTime = null, DateTime? endTime = null)
     {
         var accountProcessor = _accountProcessorFactory.GetAccountProcessor(AccountType.Future)!;
@@ -125,15 +131,16 @@ public class MarketCommandHandler : ICommandHandler
         return result.Data;
     }
 
-    private static string GetCurrentDayKlineInfo(IBinanceKline[]? dailyKlines = null)
+    private async Task<string> GenerateDailySummaryAsync(string symbol, IBinanceKline[] klines)
     {
-        IBinanceKline kline;
+        var kline = klines.LastOrDefault();
 
-        if (dailyKlines != null && dailyKlines.Length > 0)
+        if (kline == null || !kline.IsDailyKline())
         {
-            kline = dailyKlines.Last();
+            var dailyKlines = await GetKlinesAsync(symbol, KlineInterval.OneDay, 1);
+            kline = dailyKlines.LastOrDefault();
         }
-        else
+        if (kline == null)
         {
             return string.Empty;
         }
@@ -143,7 +150,7 @@ public class MarketCommandHandler : ICommandHandler
         var changeText = priceChange > 0 ? "上涨" : "下跌";
 
         var result = $$"""
-{{changeText}}: {{priceChange:F3}} ({{priceChangePercent:F2}}%)
+{{symbol}}{{changeText}}: {{priceChange:F3}} ({{priceChangePercent:F2}}%)
 close: {{kline.ClosePrice}} open: {{kline.OpenPrice}}
 low: {{kline.LowPrice}} high: {{kline.HighPrice}}
 """;
