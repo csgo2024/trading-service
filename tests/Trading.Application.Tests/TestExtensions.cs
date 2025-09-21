@@ -134,6 +134,18 @@ public static class TestExtensions
             .ReturnsAsync(result);
     }
 
+    public static void SetupSuccessfulGetKlines(this Mock<IAccountProcessor> mockAccountProcessor, IBinanceKline[] kline, KlineInterval interval)
+    {
+        mockAccountProcessor
+            .Setup(x => x.GetKlines(
+                It.IsAny<string>(),
+                It.Is<KlineInterval>(y => y == interval),
+                It.IsAny<DateTime?>(),
+                It.IsAny<DateTime?>(),
+                It.IsAny<int?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync(CreateSuccessResult(kline));
+    }
     public static void SetupSuccessfulGetKlines(this Mock<IAccountProcessor> mockAccountProcessor,
         decimal openPrice = 40000m,
         decimal closePrice = 41000m,
@@ -145,16 +157,7 @@ public static class TestExtensions
             k.ClosePrice == closePrice &&
             k.HighPrice == highPrice &&
             k.LowPrice == lowPrice);
-
-        mockAccountProcessor
-            .Setup(x => x.GetKlines(
-                It.IsAny<string>(),
-                It.IsAny<KlineInterval>(),
-                It.IsAny<DateTime?>(),
-                It.IsAny<DateTime?>(),
-                It.IsAny<int?>(),
-                It.IsAny<CancellationToken>()))
-            .ReturnsAsync(CreateSuccessResult<IBinanceKline[]>([kline]));
+        mockAccountProcessor.SetupSuccessfulGetKlines([kline], KlineInterval.OneDay);
     }
 
     public static void SetupFailedGetKlines(this Mock<IAccountProcessor> mockAccountProcessor)

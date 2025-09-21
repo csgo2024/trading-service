@@ -63,7 +63,7 @@ public class MarketCommandHandler : ICommandHandler
 
     public async Task HandleAsync(string parameters)
     {
-        _logger.LogInfoNotification("Market command received.");
+        _logger.LogInfoNotification("market command received.");
         var (symbol, interval) = ParseParameters(parameters);
 
         var during = 15;  // 取最近15天的数据
@@ -113,8 +113,8 @@ public class MarketCommandHandler : ICommandHandler
         }
 
         var parameterParts = parameters.Trim().Split([' '], 2);
-        var symbol = parameterParts[0].ToUpper();
-        var interval = parameterParts.Length > 1 ? parameterParts[1] : defaultInterval;
+        var symbol = parameterParts[0].ToUpper().Trim();
+        var interval = parameterParts.Length > 1 ? parameterParts[1].Trim() : defaultInterval;
 
         return (symbol, interval);
     }

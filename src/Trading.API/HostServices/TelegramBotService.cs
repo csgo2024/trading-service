@@ -1,13 +1,12 @@
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
+using Trading.Application.Telegram;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Models;
 
-namespace Trading.Application.Telegram.HostServices;
+namespace Trading.API.HostServices;
 
 public class TelegramBotService : BackgroundService
 {

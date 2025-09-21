@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Trading.Application.Telegram.Handlers;
-using Trading.Application.Telegram.HostServices;
 using Trading.Common.Models;
 
 namespace Trading.Application.Telegram;
@@ -41,7 +40,6 @@ public static class ServiceCollectionExtensions
             builder.AddTelegramLogger(configuration);
             builder.SetMinimumLevel(LogLevel.Information);
         });
-        services.AddHostedService<TelegramBotService>();
         return services;
     }
 }
