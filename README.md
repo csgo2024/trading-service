@@ -1,5 +1,6 @@
 # Trading Service Documentation
 
+A cryptocurrency trading service with real-time Telegram alerts, implementing statistical trading strategies based on price reversion to opening levels. The core strategy capitalizes on the high probability of prices returning to their opening values, executing trades at closing prices.
 
 ## 目录
 - [基础命令](#基础命令)
