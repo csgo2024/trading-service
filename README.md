@@ -115,6 +115,7 @@
     "Expression": "Math.abs((close - open) / open) >= 0.02"
 }
 ```
+![example](./images/alert/2.png)
 
 #### 2. 价格阈值警报
 ```json
@@ -124,6 +125,11 @@
     "Expression": "close > 20000"
 }
 ```
+#### 3. 查看警报列表
+```json
+/alert
+```
+![example](./images/alert/1.png)
 
 #### 删除指定警报
 ```
@@ -140,14 +146,26 @@
 ```
 /market <symbol> <interval>
 ```
-### 调用示例
+### 调用示例(默认 BTCUSDT 1d)
 
 ```
-/market SOLUSDT 1d
+/market
 ```
+![example](./images/market/2.png)
+
 ```
 /market ETHUSDT 4h
 ```
+![example](./images/market/1.png)
+
+## 状态查看
+
+### 调用示例
+
+```
+/debug
+```
+![example](./images/dbg/1.png)
 
 ## 部署说明
 
