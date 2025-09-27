@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="market.command.recieved" xml:space="preserve">
+    <value>market command recieved.</value>
+  </data>
+</root>

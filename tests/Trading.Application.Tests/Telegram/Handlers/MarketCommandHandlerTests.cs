@@ -9,6 +9,7 @@ using Telegram.Bot.Types.Enums;
 using Trading.Application.Services.Trading.Account;
 using Trading.Application.Telegram.Handlers;
 using Trading.Common.Models;
+using Trading.Tests.Shared;
 using AccountType = Trading.Common.Enums.AccountType;
 
 namespace Trading.Application.Tests.Telegram.Handlers;
@@ -42,7 +43,8 @@ public class MarketCommandHandlerTests
             _mockLogger.Object,
             _mockAccountProcessorFactory.Object,
             _mockBotClient.Object,
-            _mockSettings.Object);
+            _mockSettings.Object,
+            TestUtilities.SetupLocalizer<MarketCommandHandler>());
     }
 
     [Fact]

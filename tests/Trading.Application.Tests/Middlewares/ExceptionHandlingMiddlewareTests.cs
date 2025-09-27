@@ -1,25 +1,31 @@
 using System.Text;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Moq;
-using Trading.Application.Middlerwares;
+using Trading.Application.Middlewares;
+using Trading.Tests.Shared;
 
-namespace Trading.Application.Tests.Middlerwares;
+namespace Trading.Application.Tests.Middlewares;
 
 public class ExceptionHandlingMiddlewareTests
 {
     private readonly Mock<ILogger<ExceptionHandlingMiddleware>> _mockLogger;
     private readonly Mock<IErrorMessageResolver> _mockErrorResolver;
+    private readonly IStringLocalizer<ExceptionHandlingMiddleware> _localizer;
     private readonly ExceptionHandlingMiddleware _middleware;
 
     public ExceptionHandlingMiddlewareTests()
     {
+        _localizer = TestUtilities.SetupLocalizer<ExceptionHandlingMiddleware>();
+
         _mockLogger = new Mock<ILogger<ExceptionHandlingMiddleware>>();
         _mockErrorResolver = new Mock<IErrorMessageResolver>();
         _middleware = new ExceptionHandlingMiddleware(
             next: _ => throw new InvalidOperationException("Test exception"),
             logger: _mockLogger.Object,
-            errorMessageResolver: _mockErrorResolver.Object);
+            errorMessageResolver: _mockErrorResolver.Object,
+            localizer: _localizer);
     }
 
     [Fact]
@@ -32,7 +38,8 @@ public class ExceptionHandlingMiddlewareTests
         var middleware = new ExceptionHandlingMiddleware(
             next: _ => throw customException,
             _mockLogger.Object,
-            _mockErrorResolver.Object);
+            _mockErrorResolver.Object,
+            _localizer);
 
         _mockErrorResolver
             .Setup(x => x.ResolveAsync(100, "Custom error"))
@@ -63,7 +70,8 @@ public class ExceptionHandlingMiddlewareTests
         var middleware = new ExceptionHandlingMiddleware(
             next: _ => throw outerException,
             _mockLogger.Object,
-            _mockErrorResolver.Object);
+            _mockErrorResolver.Object,
+            _localizer);
 
         // Act
         await middleware.InvokeAsync(context);
@@ -78,7 +86,7 @@ public class ExceptionHandlingMiddlewareTests
     {
         // Arrange
         var context = new DefaultHttpContext();
-        var bodyContent = "Test body content";
+        var bodyContent = "Body content";
         var stream = new MemoryStream(Encoding.UTF8.GetBytes(bodyContent));
         context.Request.Body = stream;
         context.Request.ContentType = "application/json";
@@ -87,13 +95,15 @@ public class ExceptionHandlingMiddlewareTests
         var middleware = new ExceptionHandlingMiddleware(
             next: _ => throw new InvalidOperationException("Test"),
             _mockLogger.Object,
-            _mockErrorResolver.Object);
+            _mockErrorResolver.Object,
+            _localizer);
 
         // Act
         await middleware.InvokeAsync(context);
 
         // Assert
         _mockLogger.VerifyLoggingOnce(LogLevel.Error, bodyContent);
+        _mockLogger.VerifyLoggingOnce(LogLevel.Error, "Test");
     }
 
     [Fact]
@@ -107,7 +117,8 @@ public class ExceptionHandlingMiddlewareTests
         var middleware = new ExceptionHandlingMiddleware(
             next: _ => throw new InvalidOperationException("Test"),
             _mockLogger.Object,
-            _mockErrorResolver.Object);
+            _mockErrorResolver.Object,
+            _localizer);
 
         // Act
         await middleware.InvokeAsync(context);
@@ -119,24 +130,32 @@ public class ExceptionHandlingMiddlewareTests
 
 public class DefaultErrorMessageResolverTests
 {
+    private readonly Mock<IStringLocalizer<ExceptionHandlingMiddleware>> _mockLocalizer = new();
+
+    public DefaultErrorMessageResolverTests()
+    {
+        _mockLocalizer.Setup(x => x[It.IsAny<string>()])
+            .Returns((string name) => new LocalizedString(name, name));
+    }
+
     [Fact]
     public async Task ResolveAsync_WithKnownErrorCode_ShouldReturnPredefinedMessage()
     {
         // Arrange
-        var resolver = new DefaultErrorMessageResolver();
+        var resolver = new DefaultErrorMessageResolver(_mockLocalizer.Object);
 
         // Act
         var result = await resolver.ResolveAsync(-1, "default message");
 
         // Assert
-        Assert.Equal("System error.", result);
+        Assert.Equal("SystemError", result);
     }
 
     [Fact]
     public async Task ResolveAsync_WithUnknownErrorCode_ShouldReturnDefaultMessage()
     {
         // Arrange
-        var resolver = new DefaultErrorMessageResolver();
+        var resolver = new DefaultErrorMessageResolver(_mockLocalizer.Object);
 
         // Act
         var result = await resolver.ResolveAsync(999, "default message");

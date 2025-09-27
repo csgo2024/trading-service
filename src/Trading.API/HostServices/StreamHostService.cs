@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Localization;
 using Trading.Application.Services.Shared;
 using Trading.Application.Telegram.Logging;
 using Trading.Domain.IRepositories;
@@ -9,6 +10,7 @@ public class StreamHostService : BackgroundService
     private readonly IAlertRepository _alertRepository;
     private readonly IKlineStreamManager _klineStreamManager;
     private readonly ILogger<StreamHostService> _logger;
+    private readonly IStringLocalizer<StreamHostService> _localizer;
     private readonly IStrategyRepository _strategyRepository;
 
     private bool _initial = true;
@@ -17,11 +19,13 @@ public class StreamHostService : BackgroundService
     public StreamHostService(ILogger<StreamHostService> logger,
                              IAlertRepository alertRepository,
                              IStrategyRepository strategyRepository,
-                             IKlineStreamManager klineStreamManager)
+                             IKlineStreamManager klineStreamManager,
+                             IStringLocalizer<StreamHostService> localizer)
     {
         _alertRepository = alertRepository;
         _klineStreamManager = klineStreamManager;
         _logger = logger;
+        _localizer = localizer;
         _strategyRepository = strategyRepository;
     }
 
@@ -48,9 +52,9 @@ public class StreamHostService : BackgroundService
             {
                 _isSubscribed = false;
                 var errorMessage = _initial
-                    ? "Initial subscription failed. Retrying in 10 seconds..."
-                    : "Reconnection failed. Retrying in 10 seconds...";
-                _logger.LogErrorNotification(ex, errorMessage);
+                    ? _localizer["InitialSubscriptionFailedWithRetry"]
+                    : _localizer["ReconnectionFailedWithRetry"];
+                _logger.LogErrorNotification(ex, errorMessage, 10);
                 await SimulateDelay(TimeSpan.FromSeconds(10), stoppingToken);
             }
         }
@@ -66,11 +70,11 @@ public class StreamHostService : BackgroundService
             if (wasInitial)
             {
                 _initial = false;
-                _logger.LogInfoNotification("Initial subscription completed successfully");
+                _logger.LogInfoNotification(_localizer["InitialSubscriptionCompleted"]);
             }
             else
             {
-                _logger.LogInfoNotification("Reconnection completed successfully");
+                _logger.LogInfoNotification(_localizer["ReconnectionCompleted"]);
             }
         }
 

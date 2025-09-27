@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="InitialSubscriptionFailedWithRetry" xml:space="preserve">
+    <value>初始订阅失败。将在 {0} 秒后重试...</value>
+  </data>
+  <data name="ReconnectionFailedWithRetry" xml:space="preserve">
+    <value>重新连接失败。将在 {0} 秒后重试...</value>
+  </data>
+  <data name="InitialSubscriptionCompleted" xml:space="preserve">
+    <value>初始订阅完成</value>
+  </data>
+  <data name="ReconnectionCompleted" xml:space="preserve">
+    <value>重新连接完成</value>
+  </data>
+</root>

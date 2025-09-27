@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="FailedToStartBotService" xml:space="preserve">
+    <value>启动机器人服务失败</value>
+  </data>
+  <data name="PermissionDenied" xml:space="preserve">
+    <value>没有权限</value>
+  </data>
+</root>

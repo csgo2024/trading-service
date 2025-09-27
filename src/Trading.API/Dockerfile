@@ -1,11 +1,13 @@
-FROM mcr.microsoft.com/dotnet/aspnet:9.0-alpine AS base
+FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS base
 WORKDIR /app
 EXPOSE 8080
 # fontconfig + Font
 # ScottPlot 5.x  use SkiaSharp for rendering, don't need libgdiplus anymore
-RUN apk add --no-cache \
-    fontconfig \
-    ttf-dejavu \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       fontconfig \
+       fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/* \
     && fc-cache -f -v
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0-alpine AS build
@@ -34,3 +36,4 @@ FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 ENTRYPOINT ["dotnet", "Trading.API.dll"]
+

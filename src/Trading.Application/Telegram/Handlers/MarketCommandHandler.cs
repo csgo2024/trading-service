@@ -1,5 +1,6 @@
 using Binance.Net.Enums;
 using Binance.Net.Interfaces;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using ScottPlot;
@@ -46,6 +47,7 @@ public class MarketCommandHandler : ICommandHandler
 {
     private readonly ILogger<MarketCommandHandler> _logger;
     private readonly IAccountProcessorFactory _accountProcessorFactory;
+    private readonly IStringLocalizer<MarketCommandHandler> _localizer;
     public static string Command => "/market";
     private readonly ITelegramBotClient _botClient;
     private readonly string _chatId;
@@ -53,20 +55,22 @@ public class MarketCommandHandler : ICommandHandler
     public MarketCommandHandler(ILogger<MarketCommandHandler> logger,
         IAccountProcessorFactory accountProcessorFactory,
         ITelegramBotClient botClient,
-        IOptions<TelegramSettings> settings)
+        IOptions<TelegramSettings> settings,
+        IStringLocalizer<MarketCommandHandler> localizer)
     {
         _logger = logger;
         _accountProcessorFactory = accountProcessorFactory;
+        _localizer = localizer;
         _botClient = botClient;
         _chatId = settings.Value.ChatId ?? throw new ArgumentNullException(nameof(settings), "TelegramSettings is not valid.");
     }
 
     public async Task HandleAsync(string parameters)
     {
-        _logger.LogInfoNotification("market command received.");
+        _logger.LogInfoNotification(_localizer["market.command.recieved"]);
         var (symbol, interval) = ParseParameters(parameters);
 
-        var during = 15;  // 取最近15天的数据
+        var during = 15;
 
         // Parse the timeframe parameter and set configuration
         var config = interval switch

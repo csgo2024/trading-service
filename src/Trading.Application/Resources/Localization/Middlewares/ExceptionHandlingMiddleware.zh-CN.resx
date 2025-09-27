@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="RequestExceptions" xml:space="preserve">
+    <value>请求: {RequestInfo}\n异常: {ExceptionMessages}</value>
+  </data>
+  <data name="UnexpectedError" xml:space="preserve">
+    <value>发生未知错误。</value>
+  </data>
+  <data name="SystemError" xml:space="preserve">
+    <value>系统错误。</value>
+  </data>
+</root>

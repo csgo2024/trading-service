@@ -1,9 +1,11 @@
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.API.HostServices;
 using Trading.Application.Services.Shared;
 using Trading.Domain.Entities;
 using Trading.Domain.IRepositories;
+using Trading.Tests.Shared;
 
 namespace Trading.API.Tests.HostServices;
 
@@ -13,6 +15,7 @@ public class StreamHostServiceTests
     private readonly Mock<IStrategyRepository> _strategyRepoMock = new();
     private readonly Mock<IKlineStreamManager> _streamManagerMock = new();
     private readonly Mock<ILogger<StreamHostService>> _loggerMock = new();
+    private readonly IStringLocalizer<StreamHostService> _localizer = TestUtilities.SetupLocalizer<StreamHostService>();
 
     private sealed class TestStreamHostService : StreamHostService
     {
@@ -21,8 +24,9 @@ public class StreamHostServiceTests
         public TestStreamHostService(ILogger<StreamHostService> logger,
                                      IAlertRepository alertRepository,
                                      IStrategyRepository strategyRepository,
-                                     IKlineStreamManager klineStreamManager)
-            : base(logger, alertRepository, strategyRepository, klineStreamManager)
+                                     IKlineStreamManager klineStreamManager,
+                                     IStringLocalizer<StreamHostService> localizer)
+            : base(logger, alertRepository, strategyRepository, klineStreamManager, localizer)
         {
         }
 
@@ -53,7 +57,8 @@ public class StreamHostServiceTests
         var service = new TestStreamHostService(_loggerMock.Object,
                                                 _alertRepoMock.Object,
                                                 _strategyRepoMock.Object,
-                                                _streamManagerMock.Object);
+                                                _streamManagerMock.Object,
+                                                _localizer);
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
 
@@ -80,7 +85,8 @@ public class StreamHostServiceTests
         var service = new TestStreamHostService(_loggerMock.Object,
                                                 _alertRepoMock.Object,
                                                 _strategyRepoMock.Object,
-                                                _streamManagerMock.Object);
+                                                _streamManagerMock.Object,
+                                                _localizer);
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
 
@@ -118,7 +124,8 @@ public class StreamHostServiceTests
         var service = new TestStreamHostService(_loggerMock.Object,
                                                 _alertRepoMock.Object,
                                                 _strategyRepoMock.Object,
-                                                _streamManagerMock.Object);
+                                                _streamManagerMock.Object,
+                                                _localizer);
 
         using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
 
@@ -147,7 +154,8 @@ public class StreamHostServiceTests
         var service = new TestStreamHostService(_loggerMock.Object,
                                                 _alertRepoMock.Object,
                                                 _strategyRepoMock.Object,
-                                                _streamManagerMock.Object);
+                                                _streamManagerMock.Object,
+                                                _localizer);
 
         var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
 

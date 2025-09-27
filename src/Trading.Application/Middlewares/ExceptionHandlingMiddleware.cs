@@ -3,11 +3,12 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Logging;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Extensions;
 
-namespace Trading.Application.Middlerwares;
+namespace Trading.Application.Middlewares;
 
 public class CustomException : Exception
 {
@@ -37,14 +38,17 @@ public class ExceptionHandlingMiddleware
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlingMiddleware> _logger;
     private readonly IErrorMessageResolver _errorMessageResolver;
+    private readonly IStringLocalizer<ExceptionHandlingMiddleware> _localizer;
 
     public ExceptionHandlingMiddleware(RequestDelegate next,
                                        ILogger<ExceptionHandlingMiddleware> logger,
-                                       IErrorMessageResolver errorMessageResolver)
+                                       IErrorMessageResolver errorMessageResolver,
+                                       IStringLocalizer<ExceptionHandlingMiddleware> localizer)
     {
         _next = next;
         _logger = logger;
         _errorMessageResolver = errorMessageResolver;
+        _localizer = localizer;
     }
 
     public async Task InvokeAsync(HttpContext context)
@@ -69,7 +73,7 @@ public class ExceptionHandlingMiddleware
 
         var exceptionMessages = exceptions.Select(ex => ex.Message);
         _logger.LogErrorNotification(
-            "Request: {RequestInfo}\nExceptions: {ExceptionMessages}",
+            _localizer["RequestExceptions"],
             requestInfo,
             string.Join("\n", exceptionMessages)
         );
@@ -136,12 +140,14 @@ public interface IErrorMessageResolver
 public class DefaultErrorMessageResolver : IErrorMessageResolver
 {
     private readonly Dictionary<int, string> _errorMessages;
+    private readonly IStringLocalizer<ExceptionHandlingMiddleware> _localizer;
 
-    public DefaultErrorMessageResolver()
+    public DefaultErrorMessageResolver(IStringLocalizer<ExceptionHandlingMiddleware> localizer)
     {
+        _localizer = localizer;
         _errorMessages = new Dictionary<int, string>
         {
-            { -1, "System error." },
+            { -1, _localizer["SystemError"] }
         };
     }
 

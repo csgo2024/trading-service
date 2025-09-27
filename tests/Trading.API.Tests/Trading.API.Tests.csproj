@@ -29,6 +29,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\..\src\Trading.API\Trading.API.csproj" />
+      <ProjectReference Include="..\Trading.Tests.Shared\Trading.Tests.Shared.csproj" />
     </ItemGroup>
 
 </Project>

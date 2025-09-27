@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Localization;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
@@ -5,6 +6,7 @@ using Telegram.Bot.Types;
 using Trading.Application.Telegram;
 using Trading.Application.Telegram.Logging;
 using Trading.Common.Models;
+using Trading.Common.Services;
 
 namespace Trading.API.HostServices;
 
@@ -14,16 +16,23 @@ public class TelegramBotService : BackgroundService
     private readonly ITelegramBotClient _botClient;
     private readonly ITelegramCommandHandler _commandHandler;
     private readonly TelegramSettings _telegramSettings;
+    private readonly IStringLocalizer<TelegramBotService> _localizer;
+    private readonly ILanguageService _languageService;
 
-    public TelegramBotService(ITelegramBotClient botClient,
-                              ITelegramCommandHandler commandHandler,
-                              IOptions<TelegramSettings> telegramSettingOptions,
-                              ILogger<TelegramBotService> logger)
+    public TelegramBotService(
+        ITelegramBotClient botClient,
+        ITelegramCommandHandler commandHandler,
+        IOptions<TelegramSettings> telegramSettingOptions,
+        ILogger<TelegramBotService> logger,
+        IStringLocalizer<TelegramBotService> localizer,
+        ILanguageService languageService)
     {
         _botClient = botClient;
         _commandHandler = commandHandler;
         _logger = logger;
         _telegramSettings = telegramSettingOptions.Value;
+        _localizer = localizer;
+        _languageService = languageService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
@@ -39,7 +48,7 @@ public class TelegramBotService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogErrorNotification(ex, "Failed to start bot service");
+            _logger.LogErrorNotification(ex, _localizer["FailedToStartBotService"]);
         }
 
         await Task.Delay(-1, cancellationToken);
@@ -51,9 +60,11 @@ public class TelegramBotService : BackgroundService
         {
             if (update.CallbackQuery is { } callbackQuery)
             {
-                if (callbackQuery.From.Id != _telegramSettings.UserId)
+                var languageCode = callbackQuery.From?.LanguageCode ?? "en";
+                _languageService.SetCurrentCulture(languageCode);
+                if (callbackQuery.From?.Id != _telegramSettings.UserId)
                 {
-                    _logger.LogErrorNotification("Permission denied");
+                    _logger.LogErrorNotification(_localizer["PermissionDenied"]);
                     return;
                 }
                 await _commandHandler.HandleCallbackQuery(callbackQuery);
@@ -61,9 +72,12 @@ public class TelegramBotService : BackgroundService
 
             if (update.Message is { } message && message.Text is { } messageText)
             {
+                var languageCode = message.From?.LanguageCode ?? "en";
+                _languageService.SetCurrentCulture(languageCode);
+
                 if (update.Message.From?.Id != _telegramSettings.UserId)
                 {
-                    _logger.LogErrorNotification("Permission denied");
+                    _logger.LogErrorNotification(_localizer["PermissionDenied"]);
                     return;
                 }
                 if (messageText.StartsWith('/'))

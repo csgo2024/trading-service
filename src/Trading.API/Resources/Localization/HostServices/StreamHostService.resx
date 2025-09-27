@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="InitialSubscriptionFailedWithRetry" xml:space="preserve">
+    <value>Initial subscription failed. Retrying in {0} seconds...</value>
+  </data>
+  <data name="ReconnectionFailedWithRetry" xml:space="preserve">
+    <value>Reconnection failed. Retrying in {0} seconds...</value>
+  </data>
+  <data name="InitialSubscriptionCompleted" xml:space="preserve">
+    <value>Initial subscription completed successfully</value>
+  </data>
+  <data name="ReconnectionCompleted" xml:space="preserve">
+    <value>Reconnection completed successfully</value>
+  </data>
+</root>
