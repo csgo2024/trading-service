@@ -3,6 +3,7 @@ using CryptoExchange.Net.Authentication;
 using CryptoExchange.Net.Objects;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Trading.Common.Models;
 using Trading.Exchange.Abstraction;
@@ -25,12 +26,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(provider =>
         {
             var settings = provider.GetRequiredService<CredentialSettingV1>();
+            var logger = provider.GetRequiredService<ILogger<ApiProxySettings>>();
             var apiProxy = provider.GetRequiredService<IOptions<ApiProxySettings>>().Value;
             var restClient = new BinanceRestClient(options =>
             {
                 options.ApiCredentials = new ApiCredentials(settings.ApiKey, settings.ApiSecret);
                 if (apiProxy != null && !string.IsNullOrEmpty(apiProxy.Host) && apiProxy.Port > 1024 && apiProxy.Port < 65536)
                 {
+                    logger.LogInformation("Using API Proxy: {Host}:{Port}", apiProxy.Host, apiProxy.Port);
                     options.Proxy = new ApiProxy(apiProxy.Host, apiProxy.Port, apiProxy.Login, apiProxy.Password);
                 }
             });
