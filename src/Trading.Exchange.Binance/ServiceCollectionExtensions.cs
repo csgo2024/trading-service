@@ -1,7 +1,10 @@
 using Binance.Net.Clients;
 using CryptoExchange.Net.Authentication;
+using CryptoExchange.Net.Objects;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Trading.Common.Models;
 using Trading.Exchange.Abstraction;
 using Trading.Exchange.Abstraction.Contracts;
 using Trading.Exchange.Binance.Wrappers.Clients;
@@ -12,6 +15,7 @@ public static class ServiceCollectionExtensions
     public static IServiceCollection AddBinance(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<CredentialSettingV2>(configuration.GetSection("CredentialSettings"));
+        services.Configure<ApiProxySettings>(configuration.GetSection(ApiProxySettings.Section));
         services.AddSingleton(provider =>
         {
             var credentialProvider = provider.GetRequiredService<IApiCredentialProvider>();
@@ -21,9 +25,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(provider =>
         {
             var settings = provider.GetRequiredService<CredentialSettingV1>();
+            var apiProxy = provider.GetRequiredService<IOptions<ApiProxySettings>>().Value;
             var restClient = new BinanceRestClient(options =>
             {
                 options.ApiCredentials = new ApiCredentials(settings.ApiKey, settings.ApiSecret);
+                if (apiProxy != null && !string.IsNullOrEmpty(apiProxy.Host) && apiProxy.Port > 1024 && apiProxy.Port < 65536)
+                {
+                    options.Proxy = new ApiProxy(apiProxy.Host, apiProxy.Port, apiProxy.Login, apiProxy.Password);
+                }
             });
             return restClient;
         });
@@ -31,9 +40,14 @@ public static class ServiceCollectionExtensions
         services.AddSingleton(provider =>
         {
             var settings = provider.GetRequiredService<CredentialSettingV1>();
+            var proxySetting = provider.GetRequiredService<IOptions<ApiProxySettings>>().Value;
             var restClient = new BinanceSocketClient(options =>
             {
                 options.ApiCredentials = new ApiCredentials(settings.ApiKey, settings.ApiSecret);
+                if (proxySetting != null && !string.IsNullOrEmpty(proxySetting.Host) && proxySetting.Port > 1024 && proxySetting.Port < 65536)
+                {
+                    options.Proxy = new ApiProxy(proxySetting.Host, proxySetting.Port, proxySetting.Login, proxySetting.Password);
+                }
             });
             return restClient;
         });
