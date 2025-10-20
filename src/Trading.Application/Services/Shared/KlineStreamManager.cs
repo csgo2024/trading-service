@@ -40,7 +40,7 @@ public class KlineStreamManager : IKlineStreamManager, IAsyncDisposable
         _usdFutureSocketClient = usdFutureSocketClient;
         _globalState = globalState;
 
-        _connectionRestoredHandler = (period) => _logger.LogInformation("Connection restored successfully.");
+        _connectionRestoredHandler = (period) => _logger.LogInformation("Connection restored successfully after {Period} ms.", period.Milliseconds);
         _connectionLostHandler = () => _logger.LogWarning("Connection lost for subscription");
         _resubscribingFailedHandler = (ex) => _logger.LogErrorNotification("Resubscription failed, Error: {@Error}", ex);
         _logger.LogInformation("KlineStreamManager created : {HashCode}", GetHashCode());
