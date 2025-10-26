@@ -125,7 +125,7 @@ public class MarketCommandHandler : ICommandHandler
         var result = await accountProcessor.GetKlines(symbol, interval, startTime, endTime, limit);
         if (!result.Success || result.Data.Length == 0)
         {
-            _logger.LogErrorNotification("Failed to fetch market data for {Symbol}. Error: {@Error}", symbol, result.Error);
+            _logger.LogErrorNotification("Failed to fetch market data for {Symbol}. Error: {@Error}", symbol, result.Error?.ErrorDescription);
             return [];
         }
         return result.Data;

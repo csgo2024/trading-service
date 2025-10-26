@@ -4,6 +4,7 @@ using Binance.Net.Interfaces.Clients.UsdFuturesApi;
 using Binance.Net.Objects.Models.Futures;
 using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Objects;
+using CryptoExchange.Net.Objects.Errors;
 using Moq;
 using Trading.Application.Services.Trading.Account;
 using Trading.Domain.Entities;
@@ -90,7 +91,7 @@ public class FutureProcessorTests
     public async Task GetOrder_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedGetOrderAsync(error);
 
         // Act
@@ -156,7 +157,7 @@ public class FutureProcessorTests
     public async Task PlaceLongOrderAsync_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedPlaceOrderAsync(error);
 
         // Act
@@ -206,7 +207,7 @@ public class FutureProcessorTests
     public async Task PlaceShortOrderAsync_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedPlaceOrderAsync(error);
 
         // Act
@@ -242,7 +243,7 @@ public class FutureProcessorTests
     public async Task CancelOrderAsync_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedCancelOrderAsync(error);
 
         // Act
@@ -276,7 +277,7 @@ public class FutureProcessorTests
     {
         // Arrange
         var strategy = new Strategy { Symbol = DefaultSymbol, AccountType = AccountType.Future };
-        var error = new ServerError("Server error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockExchangeData.SetupGetExchangeInfoAsyncError(error);
 
         // Act & Assert
@@ -333,7 +334,7 @@ public class FutureProcessorTests
     public async Task StopLongOrderAsync_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedPlaceOrderAsync(error);
 
         // Act
@@ -382,7 +383,7 @@ public class FutureProcessorTests
     public async Task StopShortOrderAsync_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedPlaceOrderAsync(error);
 
         // Act

@@ -4,6 +4,7 @@ using Binance.Net.Interfaces.Clients.SpotApi;
 using Binance.Net.Objects.Models;
 using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Objects;
+using CryptoExchange.Net.Objects.Errors;
 using Moq;
 using Trading.Application.Services.Trading.Account;
 using Trading.Domain.Entities;
@@ -89,7 +90,7 @@ public class SpotProcessorTests
     public async Task GetOrder_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedGetOrderAsync(error);
 
         // Act
@@ -150,7 +151,7 @@ public class SpotProcessorTests
     public async Task PlaceLongOrderAsync_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedPlaceOrderAsync(error);
 
         // Act
@@ -190,7 +191,7 @@ public class SpotProcessorTests
     public async Task CancelOrderAsync_WhenFailed_ShouldReturnError()
     {
         // Arrange
-        var error = new ServerError("Test error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockTrading.SetupFailedCancelOrderAsync(error);
 
         // Act
@@ -224,7 +225,7 @@ public class SpotProcessorTests
     {
         // Arrange
         var strategy = new Strategy { Symbol = DefaultSymbol, AccountType = AccountType.Spot };
-        var error = new ServerError("Server error");
+        var error = new ServerError(new ErrorInfo(ErrorType.SystemError, "Test error"));
         _mockExchangeData.SetupFailedGetExchangeInfoAsync(error);
 
         // Act & Assert

@@ -6,6 +6,7 @@ using Binance.Net.Objects.Models;
 using Binance.Net.Objects.Models.Futures;
 using Binance.Net.Objects.Models.Spot;
 using CryptoExchange.Net.Objects;
+using CryptoExchange.Net.Objects.Errors;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Trading.Application.Services.Trading.Account;
@@ -199,11 +200,11 @@ public static class TestExtensions
 
     private static WebCallResult<T> CreateSuccessResult<T>(T data) where T : class
     {
-        return new WebCallResult<T>(null, null, null, 0, null, 0, null, null, null, null, ResultDataSource.Server, data, null);
+        return new WebCallResult<T>(null, null, null, null, null, null, null, null, null, null, null, ResultDataSource.Server, data, null);
     }
     private static WebCallResult<T> CreateFailedResult<T>(T data, string message) where T : class
     {
-        return new WebCallResult<T>(null, null, null, 0, null, 0, null, null, null, null, ResultDataSource.Server, data, new ServerError(message));
+        return new WebCallResult<T>(null, null, null, null, null, null, null, null, null, null, null, ResultDataSource.Server, data, new ServerError(new ErrorInfo(ErrorType.SystemError, message)));
     }
 
     #region Futures API
@@ -448,6 +449,9 @@ public static class TestExtensions
                 It.IsAny<int?>(),
                 It.IsAny<int?>(),
                 It.IsAny<SelfTradePreventionMode?>(),
+                It.IsAny<PegPriceType?>(),
+                It.IsAny<int?>(),
+                It.IsAny<PegOffsetType?>(),
                 It.IsAny<int?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(CreateSuccessResult(order));
@@ -474,6 +478,9 @@ public static class TestExtensions
                 It.IsAny<int?>(),
                 It.IsAny<int?>(),
                 It.IsAny<SelfTradePreventionMode?>(),
+                It.IsAny<PegPriceType?>(),
+                It.IsAny<int?>(),
+                It.IsAny<PegOffsetType?>(),
                 It.IsAny<int?>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new WebCallResult<BinancePlacedOrder>(error));

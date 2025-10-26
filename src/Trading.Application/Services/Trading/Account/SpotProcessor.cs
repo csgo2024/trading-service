@@ -43,6 +43,7 @@ public class SpotProcessor : IAccountProcessor
             null,
             null,
             null,
+            null,
             dataSource: ResultDataSource.Server,
             data: data,
             error: webCallResult.Error);
@@ -92,6 +93,7 @@ public class SpotProcessor : IAccountProcessor
             null,
             null,
             null,
+            null,
             dataSource: ResultDataSource.Server,
             data: data,
             error: webCallResult.Error);
@@ -115,6 +117,7 @@ public class SpotProcessor : IAccountProcessor
             Status = webCallResult.Data.Status,
         };
         var result = new WebCallResult<BinanceOrderBase>(null,
+            null,
             null,
             null,
             null,

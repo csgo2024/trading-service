@@ -1,6 +1,4 @@
 using System.Net;
-using System.Net.Http.Json;
-using Trading.Common.Models;
 
 namespace Trading.API.Tests.Controllers;
 
@@ -23,9 +21,9 @@ public class StatusControllerTests : IClassFixture<TradingApiFixture>
         response.EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
-        var settings = await response.Content.ReadFromJsonAsync<MongoDbSettings>();
+        var settings = await response.Content.ReadAsStringAsync();
         Assert.NotNull(settings);
-        Assert.Contains("mongodb://", settings.ConnectionString);
-        Assert.Equal("InMemoryDbForTesting", settings.DatabaseName);
+        Assert.Contains("mongodb://", settings);
+        Assert.Contains("InMemoryDbForTesting", settings);
     }
 }

@@ -122,7 +122,7 @@ public abstract class BaseExecutor
                 strategy.OrderPlacedTime = null;
                 return;
             }
-            Log(LogLevel.Error, strategy, false, "Failed to cancel order. Error: {error}", cancelResult.Error?.Message);
+            Log(LogLevel.Error, strategy, false, "Failed to cancel order. Error: {error}", cancelResult.Error?.ErrorDescription);
         }
 
     }
@@ -178,7 +178,7 @@ public abstract class BaseExecutor
             return;
         }
 
-        Log(LogLevel.Error, strategy, false, "Failed to check order status, Error: {ErrorMessage}", orderResult.Error?.Message);
+        Log(LogLevel.Error, strategy, false, "Failed to check order status, Error: {ErrorMessage}", orderResult.Error?.ErrorDescription);
     }
     public virtual async Task TryPlaceOrder(IAccountProcessor accountProcessor, Strategy strategy, CancellationToken ct)
     {
@@ -205,7 +205,7 @@ public abstract class BaseExecutor
         }
         Log(LogLevel.Error, strategy, false,
             "Failed to place order at price: {Price}, quantity: {Quantity}. Error: {ErrorMessage}", strategy.TargetPrice,
-            quantity, result?.Error?.Message);
+            quantity, result?.Error?.ErrorDescription);
     }
 
     public virtual Task HandleKlineClosedEvent(IAccountProcessor accountProcessor, Strategy strategy, KlineClosedEvent @event, CancellationToken cancellationToken)
