@@ -4,6 +4,7 @@
     <ProjectReference Include="..\Trading.Exchange.Abstraction\Trading.Exchange.Abstraction.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="AutoMapper" />
     <PackageReference Include="Binance.Net" />
   </ItemGroup>
 
