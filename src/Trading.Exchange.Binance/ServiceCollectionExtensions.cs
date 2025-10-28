@@ -47,6 +47,7 @@ public static class ServiceCollectionExtensions
             var restClient = new BinanceSocketClient(options =>
             {
                 options.ApiCredentials = new ApiCredentials(settings.ApiKey, settings.ApiSecret);
+                options.SocketNoDataTimeout = TimeSpan.FromMinutes(1);
                 if (proxySetting != null && !string.IsNullOrEmpty(proxySetting.Host) && proxySetting.Port > 1024 && proxySetting.Port < 65536)
                 {
                     options.Proxy = new ApiProxy(proxySetting.Host, proxySetting.Port, proxySetting.Login, proxySetting.Password);
