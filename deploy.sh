@@ -18,7 +18,7 @@ launchctl unload "$PLIST_PATH" || echo "ℹ️ 服务可能未加载"
 
 # 编译并复制
 /opt/homebrew/bin/dotnet publish >/dev/null
-cp -R -f ./src/Trading.API/bin/Release/net9.0/publish/* ~/trading/
+cp -R -f ./src/Trading.API/bin/Release/net10.0/publish/* ~/trading/
 echo "项目复制完成"
 
 # 启动服务
