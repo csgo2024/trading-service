@@ -29,13 +29,16 @@ public class TradingApiFixture : WebApplicationFactory<Program>, IAsyncLifetime
             .WithPortBinding(27017, true)
             .Build();
     }
-
-    protected override IWebHostBuilder CreateWebHostBuilder()
+    protected override IHost CreateHost(IHostBuilder builder)
     {
-        return new WebHostBuilder()
-            .UseStartup<Startup>();
-    }
+        // Configure services before creation if needed
+        builder.ConfigureWebHost(webHost =>
+        {
+            webHost.UseStartup<Startup>();
+        });
 
+        return base.CreateHost(builder);
+    }
     public async Task InitializeAsync()
     {
         await _mongoDbContainer.StartAsync();

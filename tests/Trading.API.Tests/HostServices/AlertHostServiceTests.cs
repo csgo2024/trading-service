@@ -34,11 +34,9 @@ public class AlertHostServiceTests
         _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
                       .ReturnsAsync(alerts);
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(200);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _alertRepoMock.Verify(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -54,11 +52,9 @@ public class AlertHostServiceTests
         _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
                       .ReturnsAsync(alerts);
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(300);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _alertRepoMock.Verify(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -71,11 +67,9 @@ public class AlertHostServiceTests
         _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
                       .ThrowsAsync(new InvalidDataException("Repo error"));
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(200);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _loggerMock.VerifyLoggingTimes(LogLevel.Error, "Error initializing alertHost service", Times.AtLeastOnce());
@@ -92,11 +86,9 @@ public class AlertHostServiceTests
         _taskManagerMock.Setup(m => m.StartAsync(It.IsAny<Alert>(), It.IsAny<CancellationToken>()))
                         .ThrowsAsync(new InvalidDataException("Task error"));
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(200);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _loggerMock.VerifyLoggingTimes(LogLevel.Error, "Error initializing alertHost service", Times.AtLeastOnce());
@@ -110,20 +102,19 @@ public class AlertHostServiceTests
         _alertRepoMock.Setup(r => r.GetActiveAlertsAsync(It.IsAny<CancellationToken>()))
                       .ReturnsAsync(alerts);
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(200);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
-        Assert.True(_hostService.DelayCalled);
+        Assert.True(_hostService.DelayCalledTask.IsCompleted);
     }
 
     // 子类: 重写延迟方法以避免真实等待
     private sealed class TestAlertHostService : AlertHostService
     {
-        public bool DelayCalled { get; private set; }
+        private readonly TaskCompletionSource _delayCalledTcs = new();
+        public Task DelayCalledTask => _delayCalledTcs.Task;
 
         public TestAlertHostService(ILogger<AlertHostService> logger,
                                     IAlertRepository repo,
@@ -132,8 +123,10 @@ public class AlertHostServiceTests
 
         public override Task SimulateDelay(TimeSpan delay, CancellationToken cancellationToken)
         {
-            DelayCalled = true;
-            return Task.CompletedTask;
+            if (!_delayCalledTcs.Task.IsCompleted)
+                _delayCalledTcs.TrySetResult();
+
+            return Task.CompletedTask; // no real delay        }
         }
     }
 }

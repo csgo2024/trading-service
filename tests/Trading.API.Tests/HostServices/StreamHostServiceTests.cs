@@ -16,7 +16,8 @@ public class StreamHostServiceTests
 
     private sealed class TestStreamHostService : StreamHostService
     {
-        public bool DelayCalled { get; private set; }
+        private readonly TaskCompletionSource _delayCalledTcs = new();
+        public Task DelayCalledTask => _delayCalledTcs.Task;
 
         public TestStreamHostService(ILogger<StreamHostService> logger,
                                      IAlertRepository alertRepository,
@@ -28,8 +29,10 @@ public class StreamHostServiceTests
 
         public override Task SimulateDelay(TimeSpan delay, CancellationToken cancellationToken)
         {
-            DelayCalled = true;
-            return Task.CompletedTask;
+            if (!_delayCalledTcs.Task.IsCompleted)
+                _delayCalledTcs.TrySetResult();
+
+            return Task.CompletedTask; // no real delay        }
         }
     }
 
@@ -44,21 +47,23 @@ public class StreamHostServiceTests
                       .ReturnsAsync(alerts);
         _strategyRepoMock.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
                          .ReturnsAsync(strategies);
-        _streamManagerMock.Setup(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
-                                                         It.IsAny<HashSet<string>>(),
-                                                         It.IsAny<CancellationToken>(),
-                                                         It.IsAny<bool>()))
-                          .ReturnsAsync(true);
+        _streamManagerMock
+            .SetupSequence(m => m.SubscribeSymbols(
+                It.IsAny<HashSet<string>>(),
+                It.IsAny<HashSet<string>>(),
+                It.IsAny<CancellationToken>(),
+                It.IsAny<bool>()))
+            .ReturnsAsync(true)   // 第一次调用
+            .ReturnsAsync(false); // 第二次调用, 如果不返回false 会一直 尝试订阅！！！
 
         var service = new TestStreamHostService(_loggerMock.Object,
                                                 _alertRepoMock.Object,
                                                 _strategyRepoMock.Object,
                                                 _streamManagerMock.Object);
 
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-
         // Act
-        await service.StartAsync(cts.Token);
+        await service.StartAsync(CancellationToken.None);
+        await service.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _streamManagerMock.Verify(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
@@ -82,10 +87,9 @@ public class StreamHostServiceTests
                                                 _strategyRepoMock.Object,
                                                 _streamManagerMock.Object);
 
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-
         // Act
-        await service.StartAsync(cts.Token);
+        await service.StartAsync(CancellationToken.None);
+        await service.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _streamManagerMock.Verify(m => m.SubscribeSymbols(It.IsAny<HashSet<string>>(),
@@ -120,10 +124,9 @@ public class StreamHostServiceTests
                                                 _strategyRepoMock.Object,
                                                 _streamManagerMock.Object);
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
-
         // Act
-        await service.StartAsync(cts.Token);
+        await service.StartAsync(CancellationToken.None);
+        await service.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _loggerMock.VerifyLoggingTimes(LogLevel.Information, "Initial subscription completed successfully", Times.Once);
@@ -149,10 +152,9 @@ public class StreamHostServiceTests
                                                 _strategyRepoMock.Object,
                                                 _streamManagerMock.Object);
 
-        var cts = new CancellationTokenSource(TimeSpan.FromSeconds(1));
-
         // Act
-        await service.StartAsync(cts.Token);
+        await service.StartAsync(CancellationToken.None);
+        await service.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _loggerMock.VerifyLoggingTimes(LogLevel.Error, "Initial subscription failed", Times.AtLeastOnce());

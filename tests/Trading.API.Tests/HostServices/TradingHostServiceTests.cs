@@ -35,11 +35,11 @@ public class TradingHostServiceTests
             .Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(strategies);
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(200); // Stop quickly
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+
+        // Assert (等待真实信号，instead of 等待时间)
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _mockStrategyRepository.Verify(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -55,11 +55,9 @@ public class TradingHostServiceTests
         _mockStrategyRepository.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(strategies);
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(300);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _mockStrategyRepository.Verify(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()), Times.Once);
@@ -72,11 +70,9 @@ public class TradingHostServiceTests
         _mockStrategyRepository.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
                          .ThrowsAsync(new InvalidDataException("Repo error"));
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(200);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _mockLogger.VerifyLoggingTimes(LogLevel.Error, "Error initializing trading service", Times.AtLeastOnce());
@@ -93,11 +89,9 @@ public class TradingHostServiceTests
         _mockStrategyTaskManager.Setup(m => m.StartAsync(It.IsAny<Strategy>(), It.IsAny<CancellationToken>()))
                         .ThrowsAsync(new InvalidDataException("Task error"));
 
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(200);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
         _mockLogger.VerifyLoggingTimes(LogLevel.Error, "Error initializing trading service", Times.AtLeastOnce());
@@ -110,21 +104,19 @@ public class TradingHostServiceTests
         var strategies = new List<Strategy> { new Strategy() };
         _mockStrategyRepository.Setup(r => r.GetActiveStrategyAsync(It.IsAny<CancellationToken>()))
                          .ReturnsAsync(strategies);
-
-        var cts = new CancellationTokenSource();
-        cts.CancelAfter(200);
-
         // Act
-        await _hostService.StartAsync(cts.Token);
+        await _hostService.StartAsync(CancellationToken.None);
+        await _hostService.DelayCalledTask.WaitAsync(TimeSpan.FromSeconds(5));
 
         // Assert
-        Assert.True(_hostService.DelayCalled);
+        Assert.True(_hostService.DelayCalledTask.IsCompleted);
     }
 
     // Helper class to override delay
     private sealed class TestTradingHostService : TradingHostService
     {
-        public bool DelayCalled { get; private set; }
+        private readonly TaskCompletionSource _delayCalledTcs = new();
+        public Task DelayCalledTask => _delayCalledTcs.Task;
 
         public TestTradingHostService(ILogger<TradingHostService> logger,
                                       IStrategyRepository repo,
@@ -133,8 +125,10 @@ public class TradingHostServiceTests
 
         public override Task SimulateDelay(TimeSpan delay, CancellationToken cancellationToken)
         {
-            DelayCalled = true;
-            return Task.CompletedTask; // no real delay
+            if (!_delayCalledTcs.Task.IsCompleted)
+                _delayCalledTcs.TrySetResult();
+
+            return Task.CompletedTask; // no real delay        }
         }
     }
 }
