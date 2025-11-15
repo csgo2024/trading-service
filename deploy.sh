@@ -10,7 +10,7 @@ echo "开始部署: $(date)"
 cd "$(dirname "$0")"
 echo "当前目录: $(pwd)"
 
-PLIST_PATH="/Users/kaka/Library/LaunchAgents/com.kaka.trading.plist"
+PLIST_PATH="/Users/kaka/Library/LaunchAgents/com.kaka.csharp-trading.plist"
 
 # 卸载服务
 echo "正在卸载服务"
