@@ -139,8 +139,8 @@ public class TelegramLogger : ILogger
             // Only process NotificationEventId
             return;
         }
-        var task = LogInternalAsync(logLevel, state, exception, formatter);
-        task.ConfigureAwait(false).GetAwaiter().GetResult();
+        // Fire-and-forget
+        _ = Task.Run(() => LogInternalAsync(logLevel, state, exception, formatter));
     }
 
     private async Task LogInternalAsync<TState>(LogLevel logLevel, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
